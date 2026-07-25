@@ -1,8 +1,13 @@
-/** Shown when the page is opened without a booking reference (providerId + amount). */
+/**
+ * Shown when the page is opened without a booking reference (providerId +
+ * amount). Heading and supporting copy live in the page hero.
+ */
 export function EmptyBookingState() {
   return (
     <div className="payment__form">
-      <p className="payment__hint">Select a service to book before funding escrow.</p>
+      <a className="payment__button" href="/discovery">
+        Find a provider
+      </a>
     </div>
   );
 }
