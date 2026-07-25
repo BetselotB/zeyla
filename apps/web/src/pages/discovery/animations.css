@@ -1,0 +1,220 @@
+/* Shared motion — discovery, tracking, reviews */
+
+@keyframes z-bg-gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  25% {
+    background-position: 50% 100%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  75% {
+    background-position: 50% 0%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes z-bg-orbit-a {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  25% {
+    transform: translate(-12vw, 8vh) scale(1.12);
+  }
+  50% {
+    transform: translate(6vw, 14vh) scale(0.92);
+  }
+  75% {
+    transform: translate(10vw, -6vh) scale(1.08);
+  }
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+@keyframes z-bg-orbit-b {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(14vw, -10vh) scale(1.1);
+  }
+  66% {
+    transform: translate(-8vw, 6vh) scale(0.94);
+  }
+  100% {
+    transform: translate(0, 0) scale(1.05);
+  }
+}
+
+@keyframes z-bg-orbit-c {
+  0% {
+    transform: translate(-50%, -50%) scale(1) rotate(0deg);
+  }
+  50% {
+    transform: translate(-42%, -58%) scale(1.15) rotate(8deg);
+  }
+  100% {
+    transform: translate(-58%, -44%) scale(0.9) rotate(-6deg);
+  }
+}
+
+@keyframes z-page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes z-dropdown-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Animated mesh layer */
+.discovery-root,
+.tracking-root,
+.reviews-root {
+  background-color: #f4efe8;
+}
+
+.z-bg-mesh {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  background: linear-gradient(
+    135deg,
+    #eef8f6 0%,
+    #faf3ea 20%,
+    #fdeee6 40%,
+    #ffe8d4 60%,
+    #f5ecd8 80%,
+    #d8f2ee 100%
+  );
+  background-size: 400% 400%;
+  animation: z-bg-gradient-shift 28s ease-in-out infinite;
+}
+
+.z-bg-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  will-change: transform;
+  opacity: 0.85;
+}
+
+.z-bg-blob-a {
+  width: min(85vw, 720px);
+  height: min(85vw, 720px);
+  top: -18%;
+  right: -12%;
+  background: radial-gradient(
+    circle,
+    rgba(255, 175, 130, 0.9) 0%,
+    rgba(255, 190, 150, 0.35) 40%,
+    transparent 68%
+  );
+  animation: z-bg-orbit-a 36s ease-in-out infinite;
+}
+
+.z-bg-blob-b {
+  width: min(80vw, 680px);
+  height: min(80vw, 680px);
+  bottom: -20%;
+  left: -14%;
+  background: radial-gradient(
+    circle,
+    rgba(120, 225, 210, 0.85) 0%,
+    rgba(130, 220, 210, 0.3) 42%,
+    transparent 70%
+  );
+  animation: z-bg-orbit-b 42s ease-in-out infinite;
+}
+
+.z-bg-blob-c {
+  width: min(55vw, 480px);
+  height: min(55vw, 480px);
+  top: 38%;
+  left: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(255, 235, 160, 0.75) 0%,
+    rgba(255, 200, 180, 0.25) 45%,
+    transparent 72%
+  );
+  animation: z-bg-orbit-c 30s ease-in-out infinite;
+}
+
+/* Page content above mesh */
+.z-page,
+.tr-page,
+.rv-page {
+  position: relative;
+  z-index: 1;
+}
+
+.z-page-enter-stagger > * {
+  animation: z-page-enter 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.z-page-enter-stagger > *:nth-child(1) {
+  animation-delay: 0.04s;
+}
+
+.z-page-enter-stagger > *:nth-child(2) {
+  animation-delay: 0.12s;
+}
+
+.z-page-enter-stagger > *:nth-child(3) {
+  animation-delay: 0.2s;
+}
+
+.z-page-enter-stagger > *:nth-child(4) {
+  animation-delay: 0.28s;
+}
+
+.z-page-enter-stagger > *:nth-child(5) {
+  animation-delay: 0.36s;
+}
+
+.z-page-enter-stagger > *:nth-child(n + 6) {
+  animation-delay: 0.44s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .z-bg-mesh {
+    animation: none;
+    background-size: 100% 100%;
+  }
+
+  .z-bg-blob {
+    animation: none !important;
+  }
+
+  .z-page,
+  .tr-page,
+  .rv-page,
+  .z-page-enter-stagger > * {
+    animation: none !important;
+  }
+
+  .z-glass-select-menu {
+    animation: none !important;
+  }
+}

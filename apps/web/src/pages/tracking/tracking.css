@@ -1,0 +1,494 @@
+/* Tracking — matches discovery / reviews glass vibe */
+
+.tracking-root {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  overflow-y: auto;
+  font-family: "Inter", system-ui, sans-serif;
+  color: #111;
+  background-color: #f4efe8;
+}
+
+.tracking-root *,
+.tracking-root *::before,
+.tracking-root *::after {
+  box-sizing: border-box;
+}
+
+.tr-page {
+  min-height: 100vh;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 2rem 3rem;
+}
+
+/* ── Nav (uses shared z-glass-nav from discovery.css) ── */
+.tr-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: rgba(17, 17, 17, 0.45);
+  text-decoration: none;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  transition: color 0.15s;
+  justify-self: start;
+}
+
+.tr-back svg {
+  width: 14px;
+  height: 14px;
+}
+
+.tr-back:hover {
+  color: #111;
+}
+
+.tr-logo {
+  justify-self: center;
+}
+
+.tr-live-badge {
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(209, 250, 229, 0.7);
+  border: 1px solid rgba(5, 150, 105, 0.15);
+  color: #059669;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.tr-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #059669;
+  animation: tr-pulse 1.5s infinite;
+}
+
+@keyframes tr-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.45); }
+  50% { box-shadow: 0 0 0 5px rgba(5, 150, 105, 0); }
+}
+
+/* ── Hero ── */
+.tr-hero {
+  text-align: center;
+  margin: 2rem auto 2rem;
+  max-width: 520px;
+}
+
+.tr-badges {
+  display: inline-flex;
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 1.25rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.tr-badge-dark {
+  background: #111;
+  color: #fff;
+  padding: 0.38rem 0.95rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+  border-radius: 999px 0 0 999px;
+}
+
+.tr-badge-light {
+  background: rgba(255, 255, 255, 0.65);
+  color: rgba(17, 17, 17, 0.55);
+  padding: 0.38rem 0.95rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  border-left: none;
+  border-radius: 0 999px 999px 0;
+}
+
+.tr-hero h1 {
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1.12;
+  margin: 0 0 0.65rem;
+}
+
+.tr-hero p {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: rgba(17, 17, 17, 0.5);
+  line-height: 1.6;
+}
+
+.tr-request-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 1rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  font-size: 0.75rem;
+  color: rgba(17, 17, 17, 0.5);
+}
+
+.tr-request-pill strong {
+  color: #111;
+  font-weight: 600;
+}
+
+/* ── Grid ── */
+.tr-grid {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 1rem;
+  align-items: start;
+}
+
+/* ── Map card ── */
+.tr-map-card {
+  background: rgba(255, 255, 255, 0.38);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.tr-map-wrap .leaflet-container {
+  height: 420px;
+  width: 100%;
+  background: rgba(240, 245, 250, 0.5);
+}
+
+.tr-map-wrap .leaflet-control-attribution {
+  font-size: 0.65rem;
+  background: rgba(255, 255, 255, 0.7) !important;
+  backdrop-filter: blur(4px);
+  border-radius: 6px 0 0 0;
+}
+
+.tr-map-marker {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2.5px solid #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+/* Leaflet injects marker HTML outside React tree */
+.tr-map-marker.tr-map-marker-you {
+  background: #2563eb;
+}
+
+.tr-map-marker.tr-map-marker-provider {
+  background: #059669;
+  animation: tr-pulse 2s infinite;
+}
+
+.tr-leaflet-pin {
+  background: transparent !important;
+  border: none !important;
+}
+
+.tr-map-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1.25rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.tr-legend {
+  display: flex;
+  gap: 1.25rem;
+}
+
+.tr-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  color: rgba(17, 17, 17, 0.45);
+  font-weight: 500;
+}
+
+.tr-pin {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
+
+.tr-pin-you { background: #2563eb; }
+.tr-pin-provider { background: #059669; }
+
+.tr-demo-note {
+  margin: 0;
+  font-size: 0.6875rem;
+  color: rgba(17, 17, 17, 0.35);
+  text-align: right;
+}
+
+/* ── Sidebar ── */
+.tr-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.tr-section-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(17, 17, 17, 0.35);
+  margin: 0 0 0.85rem;
+}
+
+/* Provider card */
+.tr-provider-card {
+  background: rgba(255, 255, 255, 0.38);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  border-radius: 20px;
+  padding: 1.25rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+}
+
+.tr-provider-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.tr-provider-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: rgba(17, 17, 17, 0.08);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 1rem;
+  color: #111;
+}
+
+.tr-provider-name {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.tr-verified {
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: #059669;
+  background: rgba(5, 150, 105, 0.1);
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+}
+
+.tr-provider-meta {
+  margin: 0.2rem 0 0;
+  font-size: 0.8125rem;
+  color: rgba(17, 17, 17, 0.45);
+  text-transform: capitalize;
+}
+
+.tr-provider-score {
+  width: 46px !important;
+  height: 46px !important;
+  font-size: 0.85rem !important;
+}
+
+.tr-provider-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.85rem;
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  font-size: 0.75rem;
+  color: rgba(17, 17, 17, 0.45);
+}
+
+.tr-status-chip {
+  display: inline-flex;
+  margin-top: 0.85rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: rgba(17, 17, 17, 0.55);
+}
+
+/* Timeline */
+.tr-timeline-card {
+  background: rgba(255, 255, 255, 0.38);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  border-radius: 20px;
+  padding: 1.25rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+}
+
+.tr-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.tr-step {
+  display: flex;
+  gap: 0.85rem;
+  padding: 0.65rem 0;
+  position: relative;
+}
+
+.tr-step:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: 13px;
+  top: 2.1rem;
+  bottom: -0.1rem;
+  width: 2px;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.tr-step-done:not(:last-child)::after {
+  background: rgba(5, 150, 105, 0.25);
+}
+
+.tr-step-marker {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 2px solid rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.6);
+  color: rgba(17, 17, 17, 0.3);
+}
+
+.tr-step-marker svg {
+  width: 12px;
+  height: 12px;
+}
+
+.tr-step-done .tr-step-marker {
+  background: #059669;
+  border-color: #059669;
+  color: #fff;
+}
+
+.tr-step-active .tr-step-marker {
+  background: #111;
+  border-color: #111;
+  color: #fff;
+  animation: tr-pulse 1.5s infinite;
+}
+
+.tr-step-declined .tr-step-marker {
+  background: #dc2626;
+  border-color: #dc2626;
+  color: #fff;
+}
+
+.tr-step-label {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #111;
+}
+
+.tr-step-desc {
+  margin: 0.15rem 0 0;
+  font-size: 0.75rem;
+  color: rgba(17, 17, 17, 0.4);
+  line-height: 1.45;
+}
+
+.tr-step-active .tr-step-label {
+  color: #111;
+}
+
+.tr-step-pending .tr-step-label {
+  color: rgba(17, 17, 17, 0.45);
+}
+
+/* Actions */
+.tr-actions-card {
+  background: rgba(255, 255, 255, 0.32);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 20px;
+  padding: 1.15rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.tr-actions-card .z-btn {
+  justify-content: center;
+  width: 100%;
+}
+
+.tracking-root .z-error {
+  max-width: 960px;
+  margin: 0 auto 1rem;
+}
+
+@media (max-width: 768px) {
+  .tr-page {
+    padding-inline: 1.25rem;
+  }
+
+  .tr-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tr-sidebar {
+    order: 1;
+  }
+
+  .tr-map-wrap .leaflet-container {
+    height: 300px;
+  }
+
+  .tr-map-footer {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .tr-demo-note {
+    text-align: left;
+  }
+}
