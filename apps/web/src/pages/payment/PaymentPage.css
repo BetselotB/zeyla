@@ -1,0 +1,399 @@
+/*
+ * Escrow checkout — same warm/bold design language as the onboarding flow:
+ * cream-peach gradient canvas, floating pill nav, oversized bold headings,
+ * translucent cards, black pill CTAs, green reserved for secured/settled
+ * states.
+ *
+ * Full-screen (position: fixed) like the onboarding flow, so the dev shell
+ * chrome in App.tsx never sits on top of a payment screen. Everything is
+ * scoped under .payment and can't leak into other pages.
+ */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap");
+
+.payment {
+  --ink: #1a1712;
+  --muted: #8b8177;
+  --line: rgba(26, 23, 18, 0.08);
+  --line-strong: rgba(26, 23, 18, 0.16);
+  --surface: rgba(255, 255, 255, 0.58);
+  --black: #1c1a17;
+  --green: #1f9d55;
+  --green-deep: #147a3d;
+  --green-soft: #e4f6ea;
+  --warn: #b4501e;
+  --warn-soft: #fbe4d5;
+
+  align-items: center;
+  background:
+    radial-gradient(900px 620px at 6% -6%, #fbe0c6 0%, transparent 55%),
+    radial-gradient(820px 540px at 98% 6%, #fad9cd 0%, transparent 52%),
+    radial-gradient(760px 700px at 46% 112%, #eaf2e2 0%, transparent 55%),
+    linear-gradient(180deg, #fdf5ee 0%, #fdf8f3 100%);
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  gap: 1.75rem;
+  min-height: 100dvh;
+  padding: 1.25rem 1.25rem 3.5rem;
+}
+
+/* --- Top nav ---------------------------------------------------------------- */
+
+.payment__nav {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.62);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  border-radius: 999px;
+  box-shadow: 0 0.5rem 1.75rem rgba(140, 92, 48, 0.07);
+  display: grid;
+  flex: 0 0 auto;
+  gap: 0.75rem;
+  grid-template-columns: 1fr auto 1fr;
+  margin: 0 auto;
+  max-width: 44rem;
+  padding: 0.55rem 1rem;
+  width: 100%;
+}
+
+.payment__brand {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.5rem;
+  grid-column: 2;
+}
+
+.payment__logo {
+  align-items: center;
+  background: linear-gradient(150deg, #2bbd71, #10693a);
+  border-radius: 0.45rem;
+  box-shadow: 0 0.2rem 0.5rem rgba(16, 105, 58, 0.28);
+  color: #fff;
+  display: inline-flex;
+  font-size: 0.85rem;
+  font-weight: 800;
+  height: 1.6rem;
+  justify-content: center;
+  width: 1.6rem;
+}
+
+.payment__wordmark {
+  font-size: 0.9rem;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.payment__nav-action {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  grid-column: 1;
+  justify-self: start;
+  padding: 0.25rem 0.4rem;
+  text-decoration: none;
+}
+
+.payment__nav-action:hover {
+  color: var(--ink);
+}
+
+/* --- Hero ------------------------------------------------------------------- */
+
+.payment__hero {
+  display: grid;
+  gap: 1rem;
+  justify-items: center;
+  margin: 0 auto;
+  max-width: 34rem;
+  text-align: center;
+  width: 100%;
+}
+
+.payment__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: center;
+}
+
+.payment__badge {
+  background: var(--black);
+  border: 1px solid var(--black);
+  border-radius: 999px;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.38rem 0.8rem;
+  white-space: nowrap;
+}
+
+.payment__badge--ghost {
+  background: rgba(255, 255, 255, 0.72);
+  border-color: var(--line);
+  color: var(--muted);
+}
+
+.payment__badge--green {
+  background: var(--green-soft);
+  border-color: rgba(31, 157, 85, 0.28);
+  color: var(--green-deep);
+}
+
+.payment__title {
+  font-size: clamp(1.85rem, 6.5vw, 2.6rem);
+  font-weight: 800;
+  letter-spacing: -0.032em;
+  line-height: 1.08;
+  margin: 0;
+}
+
+.payment__subtitle {
+  color: var(--muted);
+  font-size: 0.98rem;
+  line-height: 1.6;
+  margin: 0;
+  max-width: 28rem;
+}
+
+/* --- Card ------------------------------------------------------------------- */
+
+.payment__card {
+  background: var(--surface);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--line);
+  border-radius: 1.4rem;
+  box-shadow: 0 1.5rem 3.25rem rgba(140, 92, 48, 0.09);
+  margin: 0 auto;
+  max-width: 27rem;
+  padding: clamp(1.35rem, 5vw, 1.9rem);
+  width: 100%;
+}
+
+.payment__footnote {
+  color: var(--muted);
+  font-size: 0.76rem;
+  letter-spacing: 0.01em;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.payment__form {
+  display: grid;
+  gap: 1.05rem;
+}
+
+/* --- Summary rows ----------------------------------------------------------- */
+
+.payment__label {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.payment__summary {
+  display: grid;
+  gap: 0.7rem;
+  margin: 0;
+}
+
+.payment__summary > div {
+  align-items: baseline;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.payment__summary dt {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.payment__summary dd {
+  font-size: 0.92rem;
+  font-weight: 600;
+  margin: 0;
+  text-align: right;
+}
+
+.payment__summary > div.payment__total {
+  border-top: 1px solid var(--line);
+  padding-top: 0.7rem;
+}
+
+.payment__total dt {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.payment__amount {
+  font-size: 1.2rem;
+  font-weight: 800;
+}
+
+/* --- Fields ----------------------------------------------------------------- */
+
+.payment__field {
+  display: grid;
+  font-size: 0.78rem;
+  font-weight: 700;
+  gap: 0.45rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.payment__field input {
+  background: #fffdfb;
+  border: 1px solid var(--line-strong);
+  border-radius: 0.8rem;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 500;
+  letter-spacing: normal;
+  padding: 0.8rem 0.9rem;
+  text-transform: none;
+  width: 100%;
+}
+
+.payment__field input::placeholder {
+  color: #b6ada3;
+}
+
+.payment__field input:focus {
+  border-color: var(--black);
+  outline: 3px solid rgba(28, 26, 23, 0.08);
+}
+
+/* --- Buttons ---------------------------------------------------------------- */
+
+.payment__button {
+  align-items: center;
+  background: var(--black);
+  border: 1px solid var(--black);
+  border-radius: 999px;
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  font-family: inherit;
+  font-size: 0.92rem;
+  font-weight: 700;
+  gap: 0.55rem;
+  justify-content: center;
+  padding: 0.82rem 1.15rem;
+  text-decoration: none;
+  transition: opacity 0.15s ease;
+  width: 100%;
+}
+
+.payment__button:not(.payment__button--secondary)::after {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  content: "→";
+  display: inline-flex;
+  font-size: 0.75rem;
+  height: 1.3rem;
+  justify-content: center;
+  width: 1.3rem;
+}
+
+.payment__button:hover:not(:disabled) {
+  opacity: 0.87;
+}
+
+.payment__button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.payment__button--secondary {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: var(--line-strong);
+  color: var(--ink);
+  font-size: 0.85rem;
+  padding: 0.7rem 1rem;
+}
+
+/* --- Status, notices, hints ------------------------------------------------- */
+
+.payment__status {
+  display: grid;
+  gap: 0.75rem;
+  justify-items: center;
+  text-align: center;
+}
+
+.payment__status-icon {
+  align-items: center;
+  background: var(--green-soft);
+  border: 1px solid rgba(31, 157, 85, 0.28);
+  border-radius: 50%;
+  color: var(--green-deep);
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 1.15rem;
+  font-weight: 800;
+  height: 2.9rem;
+  justify-content: center;
+  width: 2.9rem;
+}
+
+.payment__status-icon--warn {
+  background: var(--warn-soft);
+  border-color: rgba(180, 80, 30, 0.28);
+  color: var(--warn);
+}
+
+.payment__status-icon--pending {
+  animation: payment-pulse 1.4s ease-in-out infinite;
+  background: rgba(255, 255, 255, 0.7);
+  border-color: var(--line-strong);
+  color: var(--muted);
+}
+
+@keyframes payment-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.payment__notice {
+  background: var(--green-soft);
+  border: 1px solid rgba(31, 157, 85, 0.24);
+  border-radius: 0.8rem;
+  font-size: 0.88rem;
+  margin: 0;
+  padding: 0.7rem 0.85rem;
+}
+
+.payment__notice--error {
+  background: var(--warn-soft);
+  border-color: rgba(180, 80, 30, 0.26);
+  color: #7d3612;
+}
+
+.payment__hint {
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.55;
+  margin: 0;
+}
+
+@media (max-width: 26rem) {
+  .payment {
+    padding: 1rem 0.9rem 3rem;
+  }
+}
