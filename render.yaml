@@ -5,8 +5,9 @@ services:
     name: zeyla-api
     runtime: node
     plan: starter
-    rootDir: apps/api
-    buildCommand: pnpm install --frozen-lockfile && pnpm build
+    # Build from the repo root: @zeyla/api depends on @zeyla/shared, which has to
+    # be compiled first, and the pnpm lockfile only exists at the workspace root.
+    buildCommand: pnpm install --frozen-lockfile && pnpm --filter @zeyla/api... run build
     startCommand: pnpm start
     envVars:
       - key: NODE_ENV
@@ -36,13 +37,18 @@ services:
         sync: false
       - key: FAL_KEY
         sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: ADDIS_AI_API_KEY
+        sync: false
+      - key: ADMIN_API_KEY
+        sync: false
 
   - type: web
     name: zeyla-web
     runtime: static
-    rootDir: apps/web
-    buildCommand: pnpm install --frozen-lockfile && pnpm build
-    staticPublishPath: dist
+    buildCommand: pnpm install --frozen-lockfile && pnpm --filter @zeyla/web... run build
+    staticPublishPath: apps/web/dist
     envVars:
       - key: VITE_API_URL
         sync: false
