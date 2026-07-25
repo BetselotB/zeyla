@@ -28,7 +28,11 @@ services:
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
-      - key: TELEBIRR_API_KEY
+      - key: CHAPA_SECRET_KEY
+        sync: false
+      - key: CHAPA_PUBLIC_KEY
+        sync: false
+      - key: CHAPA_WEBHOOK_SECRET
         sync: false
       - key: FAL_KEY
         sync: false
@@ -45,6 +49,8 @@ services:
       - key: VITE_SUPABASE_URL
         sync: false
       - key: VITE_SUPABASE_ANON_KEY
+        sync: false
+      - key: VITE_CHAPA_PUBLIC_KEY
         sync: false
     routes:
       - type: rewrite

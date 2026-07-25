@@ -16,12 +16,39 @@ const envSchema = z.object({
   CHAPA_PUBLIC_KEY: z.string().optional().default(""),
   CHAPA_API_BASE: z.string().optional().default("https://api.chapa.co/v1"),
   CHAPA_WEBHOOK_SECRET: z.string().optional().default(""),
+  CHAPA_ENCRYPTION_KEY: z.string().optional().default(""),
   FAL_KEY: z.string().optional().default(""),
   DEMO_MODE: z
     .string()
     .optional()
     .default("true")
     .transform((v) => v === "true" || v === "1"),
+
+  // --- Identity & Money module (owner: @betselot) ---------------------------
+  PUBLIC_API_URL: z.string().default("http://localhost:4000"),
+  WEB_APP_URL: z.string().default("http://localhost:5173"),
+  /** "mock" issues codes from this API; "supabase" delegates to Supabase phone auth. */
+  AUTH_OTP_PROVIDER: z.enum(["mock", "supabase"]).default("mock"),
+  AUTH_OTP_TTL_SECONDS: z.coerce.number().default(300),
+  AUTH_OTP_MAX_ATTEMPTS: z.coerce.number().default(5),
+  AUTH_SESSION_TTL_HOURS: z.coerce.number().default(72),
+  KYC_UPLOAD_DIR: z.string().default("./uploads"),
+  KYC_MAX_UPLOAD_BYTES: z.coerce.number().default(5 * 1024 * 1024),
+  /** Hackathon shortcut: skip human review and mark uploads verified on arrival. */
+  KYC_AUTO_VERIFY: z
+    .string()
+    .optional()
+    .default("true")
+    .transform((v) => v === "true" || v === "1"),
+  PLATFORM_FEE_PERCENT: z.coerce.number().default(5),
+  /**
+   * Receipt address used at checkout when a user has no email on file. Chapa
+   * requires one and rejects domains without MX records, so this cannot be a
+   * made-up domain. Max 50 characters.
+   */
+  CHAPA_FALLBACK_EMAIL: z.string().optional().default(""),
+  /** Shared secret for the admin-only escrow release/refund endpoints. */
+  ADMIN_API_KEY: z.string().optional().default(""),
 });
 
 export const env = envSchema.parse(process.env);
