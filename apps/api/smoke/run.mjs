@@ -20,6 +20,7 @@ const SUITES = [
   "trust",
   "notifications",
   "voice",
+  "matching",
   "contract-events",
 ];
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -29,14 +30,10 @@ const run = (suite) =>
   new Promise((resolve) => {
     const child = spawn(process.execPath, [path.join(here, `${suite}.mjs`)], {
       stdio: "inherit",
-      env: {
-        ...process.env,
-        ZEYLA_PORT: port,
-        // Suites assert the offline keyword parser. A real Addis key in
-        // apps/api/.env would make voice/parse hang on a live HTTP call.
-        ADDIS_AI_API_KEY: "",
-        WHISPERFLOW_API_KEY: "",
-      },
+      // These suites are HTTP clients: which AI stages run is decided by the
+      // server's own environment, so there is nothing to override from here.
+      // Assertions are written to hold with or without the model keys set.
+      env: { ...process.env, ZEYLA_PORT: port },
     });
     child.on("exit", (code) => resolve(code ?? 1));
   });

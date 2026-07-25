@@ -310,47 +310,114 @@ side calls the escrow module once a provider accepts; that module owns
 
 ---
 
-## Voice requests (Whisperflow → Addis AI)
+## Voice requests (Addis AI → Gemini)
 
-### POST /api/marketplace/voice-requests → 201
+The pipeline, and why it is in this order:
 
-Speech to a real service request in one call. Requires `x-user-id`.
+1. **Addis AI** `/api/v2/stt` transcribes the clip. It is trained on Amharic and
+   Afaan Oromo phonemes, which generic speech-to-text handles badly.
+2. **Gemini** translates that transcript to English and extracts
+   `{ category, urgency, location, keywords }`. It also recovers meaning from a
+   garbled transcript, which matters because a phone mic in a noisy room mangles
+   words — a mishearing of ቧንቧ still comes back as `plumber`.
+3. **Keyword parser** catches everything if both are unavailable.
+
+Every stage degrades into the next, so a missing key or a dead API makes the
+result worse, never an error. `parse.source` always says which stage answered.
+
+### POST /api/marketplace/transcribe
+
+Audio to text only, so the intake screen can show the transcript and let the
+customer fix a mishearing before anything is created.
 
 ```json
 {
-  "audioUrl": "https://storage.example/clip.m4a",
-  "audioBase64": null,
-  "transcript": null,
-  "mimeType": "audio/m4a",
-  "language": "am",
-  "lat": 8.995,
-  "lng": 38.787,
-  "radiusMeters": 5000
+  "audioBase64": "GkXfo59Ch…",
+  "mimeType": "audio/webm",
+  "language": "am"
 }
 ```
 
-Send exactly one of `audioUrl`, `audioBase64` or `transcript`. `transcript`
-skips Whisperflow — use it when the browser already did speech-to-text, and for
-testing. `lat`/`lng` are the device GPS and are **required**.
+Send `audioBase64` (a bare base64 string or a `data:` URI) or `audioUrl`.
+`language` is `am` or `om`; anything else is treated as Amharic.
+
+→ `{ "transcription": VoiceTranscriptResult, "transcript": "…" }`
+
+### POST /api/marketplace/classify
+
+Transcript to a structured request without creating one — the "we heard:
+plumber, emergency" preview, plus the translation.
+
+```json
+{ "transcript": "ቧንቧዬ ተሰብሮ ውሃ ፈሷል። ቦሌ ነኝ።", "language": "am" }
+```
 
 ```json
 {
   "success": true,
   "data": {
-    "request": { "...": "ServiceRequestDto, category/urgency filled from the parse" },
-    "transcription": {
-      "transcript": "My toilet is overflowing at Megenagna, please send a plumber immediately",
-      "language": "en",
-      "durationSeconds": 6.2,
-      "source": "whisperflow"
-    },
+    "transcript": "ቧንቧዬ ተሰብሮ ውሃ ፈሷል። ቦሌ ነኝ።",
     "parse": {
       "category": "plumber",
       "urgency": "emergency",
-      "location": { "label": "Megenagna", "lat": null, "lng": null },
-      "confidence": 0.6,
-      "source": "heuristic"
+      "location": { "label": "Bole", "lat": null, "lng": null },
+      "confidence": 0.95,
+      "source": "gemini",
+      "detectedLanguage": "am",
+      "summaryEn": "My pipe has burst and water is leaking. I am in Bole.",
+      "summaryLocal": "ቧንቧዬ ተሰብሮ ውሃ ፈሷል። ቦሌ ነኝ።",
+      "keywords": ["burst pipe", "leaking water"]
+    }
+  },
+  "error": null
+}
+```
+
+`POST /api/marketplace/voice/parse` is an alias of this endpoint, kept because
+the smoke suites use that path. It returns the same `parse` object.
+
+### POST /api/marketplace/voice-requests → 201
+
+Speech to a real service request in one call.
+
+```json
+{
+  "audioBase64": null,
+  "audioUrl": "https://storage.example/clip.m4a",
+  "transcript": null,
+  "mimeType": "audio/m4a",
+  "language": "am",
+  "lat": 8.995,
+  "lng": 38.787,
+  "radiusMeters": 5000,
+  "category": "plumber",
+  "urgency": "emergency"
+}
+```
+
+Send exactly one of `audioUrl`, `audioBase64` or `transcript`. `transcript`
+skips transcription — use it when the browser already has the text (for example
+straight from `/transcribe`), and for testing. `lat`/`lng` are the device GPS and
+are **required**.
+
+`category` and `urgency` are the confirm screen's corrections. **Only send them
+when the customer actually changed something**: they overrule the model and force
+`confidence` to 1, which is right for a human answer and wrong for an echo of the
+model's own guess.
+
+```json
+{
+  "success": true,
+  "data": {
+    "request": { "...": "ServiceRequestDto; description is the English translation" },
+    "transcription": {
+      "transcript": "ቧንቧዬ ተሰብሮ ውሃ ፈሷል። ቦሌ ነኝ።",
+      "language": "am",
+      "durationSeconds": null,
+      "source": "addis_ai",
+      "confidence": 0.86
     },
+    "parse": { "...": "VoiceParseResult, as above" },
     "needsConfirmation": false
   },
   "error": null
@@ -364,33 +431,102 @@ Behaviour worth designing around:
   the category editable instead of asking the customer to record again.
 - **The spoken place is only a label.** `request.lat/lng` always come from the
   device GPS; a misheard neighbourhood must never move the pin.
-- **`parse.source`** is `addis_ai` when the model answered and `heuristic` when
-  the offline keyword parser did (no API key, timeout, or unusable answer). The
-  pipeline never fails just because NLP is down.
-- The full transcript is stored on `request.voiceTranscript` and the parse on
-  `request.nlp`.
-- 503 `whisperflow_not_configured` / `whisperflow_failed` / `whisperflow_timeout`
-  when audio was sent but transcription is unavailable. Sending `transcript`
-  directly always works.
+- `request.description` is the **English translation** so a provider who does not
+  share the customer's language can read the job. The original words are kept
+  verbatim on `request.voiceTranscript`, and the parse on `request.nlp`.
+- 503 `addis_ai_not_configured` / `addis_stt_failed` / `addis_stt_timeout` /
+  `addis_stt_empty_transcript` when audio was sent but transcription is
+  unavailable. Sending `transcript` directly always works.
 
-### POST /api/marketplace/voice/parse
+---
 
-Parse without creating anything — for a live "we heard: plumber, emergency"
-preview.
+## Matching
+
+Two layers, deliberately separated.
+
+**Hard constraints run in SQL**: right trade, inside the customer's radius, above
+the trust floor. A model never sees them, so no model mistake can surface an
+ineligible provider.
+
+**Soft ranking runs in Gemini**: of the providers who *could* take this job,
+which fits the described problem, and why. With Gemini unavailable the SQL order
+(trust, then distance) stands and each provider gets a factual one-liner instead.
+
+### GET /api/marketplace/requests/:id/matches
+
+Read-only. Nobody is contacted.
+
+| Param | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `limit` | int | `5` | 1..10 |
+| `onlineOnly` | bool | `false` | A shortlist the customer can read beats an empty one. |
+| `minTrust` | number | `0` | 0..100 |
 
 ```json
-{ "transcript": "The pipe under my sink burst, I need someone right now in Bole" }
+{
+  "success": true,
+  "data": {
+    "request": { "...": "ServiceRequestDto" },
+    "matches": [
+      {
+        "provider": { "...": "ProviderSummary" },
+        "score": 92,
+        "reason": "Fifteen years specifically on burst pipes, and 300 m away.",
+        "rank": 1
+      }
+    ],
+    "source": "gemini"
+  },
+  "error": null
+}
 ```
 
-→ `{ "transcript": "...", "parse": VoiceParseResult }`
+- `matches` is sorted best-first and `rank` is `1..n` with no gaps.
+- `reason` is a short sentence written for the customer, built only from the
+  provider's own data. Show it under the provider's name.
+- `source` is `gemini` when the model ranked them, `deterministic` when it fell
+  back to trust and distance. Do not label the fallback as AI in the UI.
+- A request whose category is `other` searches every trade rather than none.
 
-The keyword fallback understands English and Amharic (ቧንቧ, መብራት, ጽዳት …) and
-recognises Addis neighbourhoods (Bole, Piassa, Megenagna, CMC …).
+### POST /api/marketplace/requests/:id/match → 201
+
+Commit to a pairing: ping the named provider, or the best-ranked ones.
+
+```json
+{ "providerId": "6b1d…", "limit": 3, "onlineOnly": false, "minTrust": 0 }
+```
+
+Every field is optional. Omit `providerId` and the top `limit` matches are pinged
+— the fast path for an emergency where nobody wants to read profiles.
+`provider_id` is accepted as an alias.
+
+Returns the `POST /requests/:id/pings` payload plus the ranking that chose them:
+
+```json
+{
+  "success": true,
+  "data": {
+    "request": { "...": "ServiceRequestDto, now status=pinged" },
+    "pings": [{ "...": "PingDto" }],
+    "pingedProviderIds": ["6b1d…"],
+    "skipped": [],
+    "matches": [{ "...": "ProviderMatch[] — those actually pinged" }],
+    "matchSource": "gemini"
+  },
+  "error": null
+}
+```
+
+- 400 `provider_not_eligible` — the named provider is the wrong trade, outside
+  the radius, or below the trust floor. `data.details` says which.
+- 404 `matching_provider_not_found` — nobody nearby can take this job.
+- Emergency requests get a 120-second ping expiry instead of 300.
 
 ## Types
 
 TypeScript types are exported from `@zeyla/shared` — import them instead of
 re-declaring: `ProviderSummary`, `ProviderDetail`, `ProviderSearchQuery`,
 `ProviderSearchResult`, `ServiceRequestDto`, `PingDto`, `ProviderPingDto`,
-`PingFanoutResult`, `VoiceParseResult`, `VoiceTranscriptResult`,
-`ServiceCategory`, `Urgency`, `SERVICE_CATEGORIES`, `URGENCY_LEVELS`.
+`PingFanoutResult`, `VoiceParseResult`, `VoiceTranscriptResult`, `ProviderMatch`,
+`MatchResult`, `ServiceCategory`, `Urgency`, `SpokenLanguage`,
+`SERVICE_CATEGORIES`, `URGENCY_LEVELS`, `SPOKEN_LANGUAGES`.

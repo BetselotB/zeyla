@@ -1,5 +1,10 @@
 import { useState } from "react";
 import type { KycStatus } from "@zeyla/shared";
+// Shared page chrome lives with discovery (owner: Daniel). Imported, not copied,
+// so onboarding cannot drift away from the landing layout.
+import { AnimatedMeshBg } from "../discovery/components/AnimatedMeshBg.js";
+import { DiscoveryNav } from "../discovery/components/DiscoveryNav.js";
+import "../discovery/discovery.css";
 import { createProviderProfile, requestOtp, submitKyc, updateProfile, verifyOtp } from "./api";
 import { EmailStep } from "./components/EmailStep";
 import { KycStatusScreen } from "./components/KycStatusScreen";
@@ -154,47 +159,47 @@ export function OnboardingPage() {
     },
   };
 
+  const backStep: Step | null =
+    step === "otp" ? "phone" : step === "providerProfile" ? "providerPrompt" : null;
+
   return (
-    <main className="onboarding">
-      <nav className="onboarding__nav">
-        {step === "otp" && (
-          <button className="onboarding__nav-action" type="button" onClick={() => setStep("phone")}>
-            ‹ Back
-          </button>
-        )}
-        {step === "providerProfile" && (
-          <button className="onboarding__nav-action" type="button" onClick={() => setStep("providerPrompt")}>
-            ‹ Back
-          </button>
-        )}
-        <span className="onboarding__brand">
-          <span className="onboarding__logo">Z</span>
-          <span className="onboarding__wordmark">Zeyla</span>
-        </span>
-      </nav>
+    <div className="discovery-root">
+      <AnimatedMeshBg />
+      <div className="z-page z-page-enter-stagger onboarding">
+        <DiscoveryNav />
 
-      <header className="onboarding__hero">
-        <div className="onboarding__badges">
-          <span className="onboarding__badge">{PHASE_LABELS[phase]}</span>
-          <span className="onboarding__badge onboarding__badge--ghost">Step {phase + 1} of 3</span>
-        </div>
-        <h1 className="onboarding__title">{copy[step].title}</h1>
-        <p className="onboarding__subtitle">{copy[step].subtitle}</p>
-        <div
-          className="onboarding__rail"
-          role="progressbar"
-          aria-valuemin={1}
-          aria-valuemax={3}
-          aria-valuenow={phase + 1}
-          aria-label="Onboarding progress"
-        >
-          {[0, 1, 2].map((segment) => (
-            <span key={segment} className={segment <= phase ? "is-filled" : ""} />
-          ))}
-        </div>
-      </header>
+        <section className="z-hero">
+          <div className="z-badges">
+            <span className="z-badge z-badge-dark">{PHASE_LABELS[phase]}</span>
+            <span className="z-badge z-badge-light">Step {phase + 1} of 3</span>
+          </div>
+          <h1>{copy[step].title}</h1>
+          <p>{copy[step].subtitle}</p>
+          <div
+            className="onboarding__rail"
+            role="progressbar"
+            aria-valuemin={1}
+            aria-valuemax={3}
+            aria-valuenow={phase + 1}
+            aria-label="Onboarding progress"
+          >
+            {[0, 1, 2].map((segment) => (
+              <span key={segment} className={segment <= phase ? "is-filled" : ""} />
+            ))}
+          </div>
+        </section>
 
-      <section className="onboarding__card">
+        <div className="z-glass-card">
+          <div className="z-glass-inner onboarding__card">
+            {backStep && (
+              <button
+                className="onboarding__nav-action"
+                type="button"
+                onClick={() => setStep(backStep)}
+              >
+                ‹ Back
+              </button>
+            )}
         {step === "phone" && <PhoneStep isSubmitting={isSubmitting} onSubmit={handlePhoneSubmit} />}
 
         {step === "otp" && (
@@ -247,9 +252,13 @@ export function OnboardingPage() {
             </a>
           </div>
         )}
-      </section>
+          </div>
+        </div>
 
-      <p className="onboarding__footnote">Encrypted · Escrow protected · Addis Ababa</p>
-    </main>
+        <p className="z-microcopy onboarding__footnote">
+          Encrypted · Escrow protected · Addis Ababa
+        </p>
+      </div>
+    </div>
   );
 }

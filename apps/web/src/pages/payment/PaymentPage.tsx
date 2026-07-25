@@ -1,5 +1,10 @@
 import type { ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
+// Shared page chrome lives with discovery (owner: Daniel). Imported, not copied,
+// so checkout cannot drift away from the landing layout.
+import { AnimatedMeshBg } from "../discovery/components/AnimatedMeshBg.js";
+import { DiscoveryNav } from "../discovery/components/DiscoveryNav.js";
+import "../discovery/discovery.css";
 import { BookingSummary } from "./components/BookingSummary";
 import { EmptyBookingState } from "./components/EmptyBookingState";
 import { EscrowReturnScreen } from "./components/EscrowReturnScreen";
@@ -45,27 +50,29 @@ const RETURN_COPY: Record<EscrowReturnState, Copy> = {
 
 function PaymentShell({ copy, children }: { copy: Copy; children: ReactNode }) {
   return (
-    <main className="payment">
-      <nav className="payment__nav">
-        <span className="payment__brand">
-          <span className="payment__logo">Z</span>
-          <span className="payment__wordmark">Zeyla</span>
-        </span>
-      </nav>
+    <div className="discovery-root">
+      <AnimatedMeshBg />
+      <div className="z-page z-page-enter-stagger payment">
+        <DiscoveryNav />
 
-      <header className="payment__hero">
-        <div className="payment__badges">
-          <span className="payment__badge">{copy.badge}</span>
-          <span className="payment__badge payment__badge--ghost">{copy.ghost}</span>
+        <section className="z-hero">
+          <div className="z-badges">
+            <span className="z-badge z-badge-dark">{copy.badge}</span>
+            <span className="z-badge z-badge-light">{copy.ghost}</span>
+          </div>
+          <h1>{copy.title}</h1>
+          <p>{copy.subtitle}</p>
+        </section>
+
+        <div className="z-glass-card">
+          <div className="z-glass-inner payment__card">{children}</div>
         </div>
-        <h1 className="payment__title">{copy.title}</h1>
-        <p className="payment__subtitle">{copy.subtitle}</p>
-      </header>
 
-      <section className="payment__card">{children}</section>
-
-      <p className="payment__footnote">Escrow protected · Chapa secured · Addis Ababa</p>
-    </main>
+        <p className="z-microcopy payment__footnote">
+          Escrow protected · Chapa secured · Addis Ababa
+        </p>
+      </div>
+    </div>
   );
 }
 

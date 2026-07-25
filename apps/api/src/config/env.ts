@@ -19,12 +19,29 @@ const envSchema = z.object({
   CHAPA_ENCRYPTION_KEY: z.string().optional().default(""),
   FAL_KEY: z.string().optional().default(""),
   // Voice request pipeline (marketplace module). Keys stay empty in the repo;
-  // with no key the pipeline falls back to the offline parser instead of failing.
+  // with no key each stage degrades to the next one instead of failing.
   WHISPERFLOW_API_KEY: z.string().optional().default(""),
   WHISPERFLOW_API_BASE: z.string().optional().default("https://api.whisperflow.ai/v1"),
+  /** Addis AI transcribes Amharic / Afaan Oromo speech and is the STT of record. */
   ADDIS_AI_API_KEY: z.string().optional().default(""),
-  ADDIS_AI_API_BASE: z.string().optional().default("https://api.addisai.com/v1"),
-  ADDIS_AI_MODEL: z.string().optional().default("addis-nlp-1"),
+  ADDIS_AI_API_BASE: z.string().optional().default("https://api.addisassistant.com"),
+  ADDIS_AI_MODEL: z.string().optional().default("Addis-፩-አሌፍ"),
+  /**
+   * Gemini turns the transcript into the structured request the matcher needs
+   * and ranks the shortlist of providers. Authenticates with `?key=`, not a
+   * bearer token — the generative-language endpoint rejects Authorization.
+   */
+  GEMINI_API_KEY: z.string().optional().default(""),
+  GEMINI_API_BASE: z
+    .string()
+    .optional()
+    .default("https://generativelanguage.googleapis.com/v1beta"),
+  /**
+   * Quota is per model per day, so this is the dial to turn when Gemini starts
+   * 429ing mid-demo. Gemini 2.x and 3.x are both supported; the client picks the
+   * right thinking setting from the name.
+   */
+  GEMINI_MODEL: z.string().optional().default("gemini-3.5-flash-lite"),
   DEMO_MODE: z
     .string()
     .optional()

@@ -1,24 +1,19 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import type { Classification } from "../lib/types.js";
-import type { Provider } from "../lib/types.js";
-import { listProviders, matchProvider } from "../lib/api.js";
+import { getMatches, matchProvider } from "../lib/api.js";
+import type { MatchResult, ProviderMatch, ServiceRequestDto } from "../lib/types.js";
 import { ProviderCard } from "./ProviderCard.js";
 
 interface ProviderResultsProps {
-  classification: Classification;
-  requestId: number;
+  request: ServiceRequestDto;
 }
 
-export function ProviderResults({
-  classification,
-  requestId,
-}: ProviderResultsProps) {
+export function ProviderResults({ request }: ProviderResultsProps) {
   const navigate = useNavigate();
-  const [providers, setProviders] = useState<Provider[]>([]);
+  const [result, setResult] = useState<MatchResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [requestingId, setRequestingId] = useState<number | null>(null);
+  const [pairingId, setPairingId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -26,14 +21,8 @@ export function ProviderResults({
       setLoading(true);
       setError(null);
       try {
-        const data = await listProviders({
-          category: classification.service_category,
-        });
-        if (!cancelled) {
-          setProviders(
-            [...data].sort((a, b) => b.trust_score - a.trust_score),
-          );
-        }
+        const data = await getMatches(request.id);
+        if (!cancelled) setResult(data);
       } catch {
         if (!cancelled) setError("Could not load providers. Please try again.");
       } finally {
@@ -43,48 +32,54 @@ export function ProviderResults({
     return () => {
       cancelled = true;
     };
-  }, [classification.service_category]);
+  }, [request.id]);
 
-  async function handleRequest(providerId: number) {
-    setRequestingId(providerId);
+  async function handleRequest(providerId: string) {
+    setPairingId(providerId);
     setError(null);
     try {
-      await matchProvider(requestId, providerId);
-      navigate(`/tracking?requestId=${requestId}&providerId=${providerId}`);
+      await matchProvider(request.id, providerId);
+      navigate(`/tracking?requestId=${request.id}&providerId=${providerId}`);
     } catch {
-      setError("Could not send request. Please try again.");
+      setError("Could not send the request. Please try again.");
     } finally {
-      setRequestingId(null);
+      setPairingId(null);
     }
   }
+
+  const matches: ProviderMatch[] = result?.matches ?? [];
+  const rankedByAi = result?.source === "gemini";
 
   return (
     <section className="z-results" id="providers">
       <div className="z-results-header">
-        <h2>Trusted providers near you</h2>
+        <h2>{rankedByAi ? "Best matches for your problem" : "Trusted providers near you"}</h2>
         <p>
-          Ranked by trust score · {classification.service_category} ·{" "}
-          {classification.urgency} urgency
+          {rankedByAi
+            ? "Ranked on fit, trust, and distance"
+            : "Ranked by trust score"}{" "}
+          · {request.category.replace(/_/g, " ")} · {request.urgency} urgency
+          {request.addressLabel ? ` · ${request.addressLabel}` : ""}
         </p>
       </div>
 
       {error && <div className="z-error">{error}</div>}
 
       {loading ? (
-        <div className="z-loading">Finding nearby providers…</div>
-      ) : providers.length === 0 ? (
+        <div className="z-loading">Finding the right provider…</div>
+      ) : matches.length === 0 ? (
         <div className="z-empty">
-          No providers found nearby. Try a different category or check back
-          later.
+          No {request.category.replace(/_/g, " ")} is available near you right
+          now. Try widening the area or a different service.
         </div>
       ) : (
         <div className="z-provider-list">
-          {providers.map((p) => (
+          {matches.map((match) => (
             <ProviderCard
-              key={p.id}
-              provider={p}
+              key={match.provider.id}
+              match={match}
               onRequest={handleRequest}
-              requesting={requestingId === p.id}
+              requesting={pairingId === match.provider.id}
             />
           ))}
         </div>

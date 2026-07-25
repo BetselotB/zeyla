@@ -133,7 +133,14 @@ export interface PingFanoutResult {
   skipped: { providerId: string; reason: string }[];
 }
 
-/** Output of the Whisperflow -> Addis AI pipeline. */
+/** Languages a customer may speak: English, Amharic, Afaan Oromo. */
+export const SPOKEN_LANGUAGES = ["en", "am", "om"] as const;
+export type SpokenLanguage = (typeof SPOKEN_LANGUAGES)[number];
+
+/**
+ * Output of the Addis AI -> Gemini pipeline: what the customer asked for, in a
+ * shape the matcher can act on.
+ */
 export interface VoiceParseResult {
   category: ServiceCategory;
   urgency: Urgency;
@@ -143,13 +150,40 @@ export interface VoiceParseResult {
     lng: number | null;
   };
   confidence: number;
-  /** "addis_ai" when the model answered, "heuristic" on the offline fallback. */
-  source: "addis_ai" | "heuristic";
+  /** Which stage produced this — Gemini, Addis AI's chat model, or the offline parser. */
+  source: "gemini" | "addis_ai" | "heuristic";
+  /** Language Gemini judged the transcript to be in, independent of any client hint. */
+  detectedLanguage: SpokenLanguage | null;
+  /** English translation, so providers and staff read one language. */
+  summaryEn: string | null;
+  /** One line back in the customer's own language, for the confirm screen. */
+  summaryLocal: string | null;
+  /** Symptom keywords used to rank providers. */
+  keywords: string[];
 }
 
 export interface VoiceTranscriptResult {
   transcript: string;
   language: string | null;
   durationSeconds: number | null;
-  source: "whisperflow" | "client_supplied";
+  source: "addis_ai" | "whisperflow" | "client_supplied";
+  /** STT self-reported confidence, when the provider returns one. */
+  confidence: number | null;
+}
+
+/** One ranked provider, with the reason it placed where it did. */
+export interface ProviderMatch {
+  provider: ProviderSummary;
+  /** 0-100. Blends Gemini's fit judgement with trust and distance. */
+  score: number;
+  /** Short sentence the customer sees under the provider's name. */
+  reason: string;
+  rank: number;
+}
+
+export interface MatchResult {
+  request: ServiceRequestDto;
+  matches: ProviderMatch[];
+  /** "gemini" when the model ranked them, "deterministic" on trust+distance only. */
+  source: "gemini" | "deterministic";
 }

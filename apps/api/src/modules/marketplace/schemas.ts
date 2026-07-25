@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { URGENCY_LEVELS } from "@zeyla/shared";
+import { SERVICE_CATEGORIES, URGENCY_LEVELS } from "@zeyla/shared";
 
 export const latSchema = z.coerce.number().min(-90).max(90);
 export const lngSchema = z.coerce.number().min(-180).max(180);
@@ -71,10 +71,47 @@ export const voiceRequestSchema = z.object({
   lat: latSchema,
   lng: lngSchema,
   radiusMeters: z.coerce.number().int().min(100).max(50_000).optional(),
+  /**
+   * Corrections from the confirm screen. Only set these when the customer
+   * actually changed something — they overrule the model, which is the point.
+   */
+  category: z.enum(SERVICE_CATEGORIES).optional(),
+  urgency: z.enum(URGENCY_LEVELS).optional(),
 });
 
 export const voiceParseSchema = z.object({
   transcript: z.string().trim().min(2).max(2000),
+  language: z.string().max(16).optional(),
+});
+
+/** Transcribe only — the intake screen shows the text before anything is created. */
+export const transcribeSchema = z
+  .object({
+    audioBase64: z.string().max(8_000_000).optional(),
+    audioUrl: z.string().url().max(1000).optional(),
+    mimeType: z.string().max(80).optional(),
+    /** UI language picker: "am", "om", or "en". */
+    language: z.string().max(16).optional(),
+  })
+  .refine((v) => Boolean(v.audioBase64 || v.audioUrl), {
+    message: "audioBase64 or audioUrl is required",
+    path: ["audioBase64"],
+  });
+
+export const matchQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(10).default(5),
+  /** Off by default: a shortlist the customer can read beats an empty one. */
+  onlineOnly: boolish.default(false),
+  minTrust: z.coerce.number().min(0).max(100).default(0),
+});
+
+export const pairSchema = z.object({
+  /** Omit to let the ranking pick. Accepts snake_case for the discovery UI. */
+  providerId: uuidSchema.optional(),
+  provider_id: uuidSchema.optional(),
+  limit: z.coerce.number().int().min(1).max(10).default(3),
+  onlineOnly: boolish.default(false),
+  minTrust: z.coerce.number().min(0).max(100).default(0),
 });
 
 export const providerPingsQuerySchema = z.object({
