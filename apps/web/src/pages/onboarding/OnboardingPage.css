@@ -1,0 +1,206 @@
+.onboarding {
+  display: grid;
+  gap: 1.5rem;
+  max-width: 42rem;
+}
+
+.onboarding__intro {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.onboarding__eyebrow {
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.onboarding__title {
+  font-family: Fraunces, Georgia, serif;
+  font-size: clamp(2rem, 6vw, 3rem);
+  line-height: 1.05;
+  margin: 0;
+}
+
+.onboarding__card {
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  box-shadow: 0 1rem 3rem rgba(15, 61, 46, 0.07);
+  padding: clamp(1.25rem, 4vw, 2rem);
+}
+
+.onboarding__steps {
+  display: flex;
+  gap: 0.45rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.onboarding__steps li {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  font-size: 0.82rem;
+  gap: 0.35rem;
+}
+
+.onboarding__steps li::after {
+  background: var(--line);
+  content: "";
+  height: 1px;
+  margin-left: 0.25rem;
+  width: 1.2rem;
+}
+
+.onboarding__steps li:last-child::after {
+  display: none;
+}
+
+.onboarding__steps .is-active {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.onboarding__form {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.onboarding__field {
+  display: grid;
+  font-weight: 600;
+  gap: 0.4rem;
+}
+
+.onboarding__field input,
+.onboarding__field select,
+.onboarding__field textarea {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 0.55rem;
+  color: var(--ink);
+  font: inherit;
+  padding: 0.75rem 0.85rem;
+  width: 100%;
+}
+
+.onboarding__field textarea {
+  min-height: 7rem;
+  resize: vertical;
+}
+
+.onboarding__field input:focus,
+.onboarding__field select:focus,
+.onboarding__field textarea:focus {
+  border-color: var(--accent);
+  outline: 2px solid rgba(15, 61, 46, 0.15);
+}
+
+.onboarding__actions,
+.onboarding__role-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.onboarding__button {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  padding: 0.7rem 1.1rem;
+}
+
+.onboarding__button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.onboarding__button--secondary {
+  background: transparent;
+  color: var(--accent);
+}
+
+.onboarding__role {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  color: var(--ink);
+  cursor: pointer;
+  flex: 1 1 12rem;
+  font: inherit;
+  padding: 1rem;
+  text-align: left;
+}
+
+.onboarding__role.is-selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(15, 61, 46, 0.15);
+}
+
+.onboarding__role strong,
+.onboarding__role span {
+  display: block;
+}
+
+.onboarding__role span {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin-top: 0.25rem;
+}
+
+.onboarding__notice {
+  background: #edf5ef;
+  border-left: 3px solid var(--accent);
+  color: var(--ink);
+  margin: 0;
+  padding: 0.75rem;
+}
+
+.onboarding__notice--error {
+  background: #fff1ec;
+  border-left-color: #b44028;
+}
+
+.onboarding__status {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+}
+
+.onboarding__status-icon {
+  align-items: center;
+  background: #d9ecdf;
+  border-radius: 50%;
+  color: var(--accent);
+  display: inline-flex;
+  font-weight: 800;
+  height: 2.4rem;
+  justify-content: center;
+  width: 2.4rem;
+}
+
+.onboarding__hint {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+@media (max-width: 32rem) {
+  .onboarding__steps li {
+    font-size: 0.72rem;
+  }
+
+  .onboarding__steps li::after {
+    width: 0.55rem;
+  }
+}
