@@ -5,9 +5,10 @@ services:
     name: zeyla-api
     runtime: node
     plan: starter
-    # Build from the repo root: @zeyla/api depends on @zeyla/shared, which has to
-    # be compiled first, and the pnpm lockfile only exists at the workspace root.
-    buildCommand: pnpm install --frozen-lockfile && pnpm --filter @zeyla/api... run build
+    # Single service: builds the whole workspace from the root (the lockfile only
+    # exists there, and @zeyla/shared has to compile before either app) and the
+    # API process serves apps/web/dist alongside /api on one origin.
+    buildCommand: pnpm install --frozen-lockfile && pnpm run build
     startCommand: pnpm start
     envVars:
       - key: NODE_ENV
@@ -19,7 +20,7 @@ services:
       - key: REDIS_URL
         fromService:
           name: zeyla-redis
-          type: redis
+          type: keyvalue
           property: connectionString
       - key: CORS_ORIGIN
         sync: false
@@ -43,13 +44,9 @@ services:
         sync: false
       - key: ADMIN_API_KEY
         sync: false
-
-  - type: web
-    name: zeyla-web
-    runtime: static
-    buildCommand: pnpm install --frozen-lockfile && pnpm --filter @zeyla/web... run build
-    staticPublishPath: apps/web/dist
-    envVars:
+      # VITE_* are read by Vite at build time and baked into the bundle, so they
+      # belong to this service now that it builds the frontend too. VITE_API_URL
+      # is this service's own public origin.
       - key: VITE_API_URL
         sync: false
       - key: VITE_SUPABASE_URL
@@ -58,12 +55,10 @@ services:
         sync: false
       - key: VITE_CHAPA_PUBLIC_KEY
         sync: false
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
 
-  - type: redis
+  # Render Key Value (Valkey, Redis-compatible). Empty ipAllowList = reachable
+  # only from inside the Render network, which is all the API needs.
+  - type: keyvalue
     name: zeyla-redis
     plan: starter
     maxmemoryPolicy: allkeys-lru
