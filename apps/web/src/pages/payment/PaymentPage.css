@@ -34,11 +34,8 @@
   flex-direction: column;
   font-family: Inter, system-ui, -apple-system, sans-serif;
   gap: 1.75rem;
-  inset: 0;
-  overflow-y: auto;
+  min-height: 100dvh;
   padding: 1.25rem 1.25rem 3.5rem;
-  position: fixed;
-  z-index: 20;
 }
 
 /* --- Top nav ---------------------------------------------------------------- */

@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { createContract, fundContract } from "../api";
-import type { BookingSummaryData } from "../types";
+import type { Booking } from "../types";
 
 type BookingSummaryProps = {
-  booking: BookingSummaryData;
+  booking: Booking;
   /** False while the session check is still resolving. */
   isReady: boolean;
   prefillEmail: string;
@@ -11,28 +11,43 @@ type BookingSummaryProps = {
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/** Turns "appliance_repair" into "Appliance repair" for display. */
+function humanise(slug: string) {
+  const spaced = slug.replace(/_/g, " ");
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
 /**
- * Booking line items, the receipt email, and the button that starts checkout.
+ * Booking line items, the agreed price, the receipt email, and the button that
+ * starts checkout.
  *
  * Creating the contract and funding it both go through our own backend (which
  * wraps Chapa's initialize call server-side) — the browser only ever receives
  * a checkoutUrl to redirect to, never a Chapa key.
  *
- * Chapa requires a receipt email; onboarding collects one, but we ask again
- * here for anyone who skipped that step, since fund() takes a per-transaction
- * override.
+ * The amount is editable because no endpoint carries an agreed price yet (see
+ * the TODO in useBooking.ts). When one exists, prefill it and make this
+ * read-only rather than asking the customer to retype what was agreed.
  */
 export function BookingSummary({ booking, isReady, prefillEmail }: BookingSummaryProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [email, setEmail] = useState(prefillEmail);
+  const [amount, setAmount] = useState(booking.amount > 0 ? String(booking.amount) : "");
 
   useEffect(() => {
     if (prefillEmail) setEmail(prefillEmail);
   }, [prefillEmail]);
 
+  const parsedAmount = Number(amount);
+  const isAmountValid = Number.isFinite(parsedAmount) && parsedAmount > 0;
+
   const handlePay = async () => {
     setError(null);
+    if (!isAmountValid) {
+      setError("Enter the amount you agreed with the provider.");
+      return;
+    }
     if (!EMAIL_PATTERN.test(email.trim())) {
       setError("Enter a valid email so we can send your receipt.");
       return;
@@ -41,10 +56,11 @@ export function BookingSummary({ booking, isReady, prefillEmail }: BookingSummar
     setIsSubmitting(true);
     try {
       const contract = await createContract({
+        requestId: booking.requestId,
         providerId: booking.providerId,
-        agreedAmount: booking.amount,
+        agreedAmount: parsedAmount,
         currency: booking.currency,
-        title: booking.description || undefined,
+        title: booking.description || humanise(booking.category),
       });
       const returnUrl = `${window.location.origin}${window.location.pathname}?contract=${contract.id}`;
       const result = await fundContract(contract.id, { returnUrl, email: email.trim() });
@@ -73,20 +89,39 @@ export function BookingSummary({ booking, isReady, prefillEmail }: BookingSummar
             <dt>Provider</dt>
             <dd>{booking.providerName}</dd>
           </div>
-          {booking.description && (
+          <div>
+            <dt>Service</dt>
+            <dd>{booking.description || humanise(booking.category)}</dd>
+          </div>
+          {booking.addressLabel && (
             <div>
-              <dt>Service</dt>
-              <dd>{booking.description}</dd>
+              <dt>Where</dt>
+              <dd>{booking.addressLabel}</dd>
             </div>
           )}
-          <div className="payment__total">
-            <dt>Total</dt>
-            <dd className="payment__amount">
-              {booking.amount.toLocaleString()} {booking.currency}
-            </dd>
-          </div>
+          {isAmountValid && (
+            <div className="payment__total">
+              <dt>Total</dt>
+              <dd className="payment__amount">
+                {parsedAmount.toLocaleString()} {booking.currency}
+              </dd>
+            </div>
+          )}
         </dl>
       </div>
+
+      <label className="payment__field">
+        <span>Agreed amount ({booking.currency})</span>
+        <input
+          type="number"
+          inputMode="decimal"
+          min="1"
+          step="1"
+          value={amount}
+          placeholder="850"
+          onChange={(event) => setAmount(event.target.value)}
+        />
+      </label>
 
       <label className="payment__field">
         <span>Receipt email</span>
@@ -111,7 +146,8 @@ export function BookingSummary({ booking, isReady, prefillEmail }: BookingSummar
       </button>
 
       <p className="payment__hint">
-        You'll finish payment on Chapa's secure checkout. Zeyla never sees your card or wallet details.
+        You'll finish payment on Chapa's secure checkout. Zeyla never sees your card or wallet details, and the money
+        stays in escrow until the job is done.
       </p>
     </div>
   );

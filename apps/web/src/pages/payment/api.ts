@@ -5,6 +5,9 @@ import type {
   CreateContractBody,
   FundContractBody,
   FundContractResponse,
+  PingDto,
+  ProviderDetail,
+  ServiceRequestDto,
 } from "@zeyla/shared";
 import { authHeaders } from "./authToken";
 
@@ -99,7 +102,87 @@ function mockEscrowed(contract: Contract): Contract {
   };
 }
 
-// --- Endpoints ---------------------------------------------------------------
+// --- Marketplace (the booking being paid for) --------------------------------
+
+type ServiceRequestDetail = { request: ServiceRequestDto; pings: PingDto[] };
+
+/**
+ * The accepted service request this payment is for, with its pings so we can
+ * tell which provider took the job (see marketplace/API.md — accepting a ping
+ * deliberately does not create a contract; that's this page's job).
+ */
+export function getServiceRequest(requestId: string): Promise<ServiceRequestDetail> {
+  return callApiOrMock<ServiceRequestDetail>(
+    `/api/marketplace/requests/${requestId}`,
+    { headers: authHeaders() },
+    async () => {
+      await wait(350);
+      const now = new Date().toISOString();
+      const request: ServiceRequestDto = {
+        id: requestId,
+        userId: mockUser.id,
+        category: "plumber",
+        description: "Kitchen pipe burst, water everywhere",
+        urgency: "emergency",
+        lat: 8.995,
+        lng: 38.787,
+        addressLabel: "Bole Medhanialem, behind the church",
+        radiusMeters: 3000,
+        status: "accepted",
+        voiceTranscript: null,
+        nlp: null,
+        createdAt: now,
+      };
+      const ping: PingDto = {
+        id: `mock-ping-${requestId}`,
+        requestId,
+        providerId: "mock-provider",
+        status: "accepted",
+        distanceMeters: 322,
+        trustScoreAtPing: 78.5,
+        sentAt: now,
+        seenAt: now,
+        respondedAt: now,
+        expiresAt: null,
+      };
+      return { request, pings: [ping] };
+    },
+    "getServiceRequest",
+  );
+}
+
+/** Public endpoint — used only to put a real name on the booking summary. */
+export function getProvider(providerId: string): Promise<ProviderDetail> {
+  return callApiOrMock<ProviderDetail>(
+    `/api/marketplace/providers/${providerId}`,
+    undefined,
+    async () => {
+      await wait(250);
+      return {
+        id: providerId,
+        name: "Abebe Tadesse",
+        category: "plumber",
+        bio: "15 years on burst pipes and water heaters.",
+        experienceYears: 15,
+        trustScore: 78.5,
+        isOnline: true,
+        kycStatus: "verified",
+        firecrawlVerified: false,
+        lat: 9.0312,
+        lng: 38.7601,
+        distanceMeters: 284,
+        avgRating: 4.67,
+        reviewCount: 12,
+        completedContracts: 9,
+        lastSeenAt: new Date().toISOString(),
+        recentReviews: [],
+      };
+    },
+    "getProvider",
+  );
+}
+
+// --- Identity, escrow --------------------------------------------------------
 
 /** Used to prefill the receipt-email field and detect a signed-out visitor. */
 export function getMe(): Promise<AuthUser> {

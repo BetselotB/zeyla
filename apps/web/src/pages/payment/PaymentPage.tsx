@@ -1,8 +1,10 @@
+import type { ReactNode } from "react";
+import { useSearchParams } from "react-router-dom";
 import { BookingSummary } from "./components/BookingSummary";
 import { EmptyBookingState } from "./components/EmptyBookingState";
 import { EscrowReturnScreen } from "./components/EscrowReturnScreen";
 import "./PaymentPage.css";
-import type { BookingSummaryData } from "./types";
+import { useBooking } from "./useBooking";
 import { useEscrowReturn, type EscrowReturnState } from "./useEscrowReturn";
 import { useViewer } from "./useViewer";
 
@@ -41,15 +43,10 @@ const RETURN_COPY: Record<EscrowReturnState, Copy> = {
   },
 };
 
-function PaymentShell({ copy, children, backHref }: { copy: Copy; children: React.ReactNode; backHref?: string }) {
+function PaymentShell({ copy, children }: { copy: Copy; children: ReactNode }) {
   return (
     <main className="payment">
       <nav className="payment__nav">
-        {backHref && (
-          <a className="payment__nav-action" href={backHref}>
-            ‹ Back
-          </a>
-        )}
         <span className="payment__brand">
           <span className="payment__logo">Z</span>
           <span className="payment__wordmark">Zeyla</span>
@@ -84,20 +81,17 @@ function EscrowReturn({ contractId }: { contractId: string }) {
 }
 
 /**
- * We pass our own return_url when funding a contract (see BookingSummary),
- * pointing back at this same page with ?contract=<id> appended — so this one
- * page doubles as both the checkout screen and the return_url handler, without
- * needing a second <Route> entry in the shared App.tsx. The backend's own
- * default return_url would land on /payment/return instead; we override it
- * specifically to avoid needing that extra route.
+ * Entered from the booking flow as `?requestId=<id>` once a provider has
+ * accepted the ping — accepting deliberately does not create a contract, the
+ * customer side starts escrow (see apps/api/src/modules/marketplace/API.md).
+ * An optional `?providerId=` and `?amount=` may be passed as hints.
  *
- * TODO(daniel/discovery): booking details currently come from the URL query
- * string (providerId, providerName, description, amount, currency) as a
- * deep-link contract. Once the discovery/booking flow exists, replace this
- * with whatever it actually passes (route state, a booking id to fetch, etc).
+ * We also pass our own return_url when funding, pointing back here with
+ * ?contract=<id>, so this one page doubles as the return_url handler without
+ * needing a second <Route> in the shared App.tsx.
  */
 export function PaymentPage() {
-  const params = new URLSearchParams(window.location.search);
+  const [params] = useSearchParams();
   const contractId = params.get("contract");
 
   if (contractId) return <EscrowReturn contractId={contractId} />;
@@ -107,27 +101,66 @@ export function PaymentPage() {
 
 function Checkout({ params }: { params: URLSearchParams }) {
   const { isSignedIn, user } = useViewer();
+  const { state, booking } = useBooking(params);
 
-  const booking: BookingSummaryData = {
-    providerId: params.get("providerId") ?? "",
-    providerName: params.get("providerName") ?? "Service provider",
-    description: params.get("description") ?? "",
-    amount: Number(params.get("amount") ?? 0),
-    currency: params.get("currency") ?? "ETB",
-  };
-  const hasBooking = Boolean(booking.providerId && booking.amount > 0);
+  if (state === "missing" || state === "error") {
+    return (
+      <PaymentShell
+        copy={
+          state === "missing"
+            ? {
+                badge: "Escrow",
+                ghost: "Nothing to pay",
+                title: "No booking to pay for",
+                subtitle: "Choose a service and agree a price with a provider first — we'll bring you back here to pay.",
+              }
+            : {
+                badge: "Escrow",
+                ghost: "Error",
+                title: "We couldn't load this booking",
+                subtitle: "Something went wrong fetching your request. Check your connection and try again.",
+              }
+        }
+      >
+        <EmptyBookingState />
+      </PaymentShell>
+    );
+  }
 
-  if (!hasBooking) {
+  if (state === "not-accepted") {
     return (
       <PaymentShell
         copy={{
           badge: "Escrow",
-          ghost: "Nothing to pay",
-          title: "No booking to pay for",
-          subtitle: "Choose a service and agree a price with a provider first — we'll bring you back here to pay.",
+          ghost: "Waiting",
+          title: "No provider has accepted yet",
+          subtitle: "You can fund escrow as soon as someone takes the job. We'll keep your request open.",
         }}
       >
-        <EmptyBookingState />
+        <div className="payment__form">
+          <a className="payment__button payment__button--secondary" href="/tracking">
+            Back to tracking
+          </a>
+        </div>
+      </PaymentShell>
+    );
+  }
+
+  if (state === "loading" || !booking) {
+    return (
+      <PaymentShell
+        copy={{
+          badge: "Escrow",
+          ghost: "Loading",
+          title: "Loading your booking",
+          subtitle: "Fetching the job details and the provider who accepted it.",
+        }}
+      >
+        <div className="payment__form">
+          <div className="payment__status">
+            <span className="payment__status-icon payment__status-icon--pending">•••</span>
+          </div>
+        </div>
       </PaymentShell>
     );
   }
@@ -143,7 +176,7 @@ function Checkout({ params }: { params: URLSearchParams }) {
         }}
       >
         <div className="payment__form">
-          <p className="payment__hint">Your booking details are saved — you'll come straight back here afterwards.</p>
+          <p className="payment__hint">Your booking is saved — you'll come straight back here afterwards.</p>
           <a className="payment__button" href="/onboarding">
             Sign in to continue
           </a>
@@ -156,7 +189,7 @@ function Checkout({ params }: { params: URLSearchParams }) {
     <PaymentShell
       copy={{
         badge: "Escrow",
-        ghost: `${booking.amount.toLocaleString()} ${booking.currency}`,
+        ghost: booking.providerName,
         title: "Confirm and fund escrow",
         subtitle: "Your payment is held by Zeyla, not sent to the provider, until the job is marked complete.",
       }}
