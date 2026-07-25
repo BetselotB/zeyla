@@ -18,6 +18,13 @@ const envSchema = z.object({
   CHAPA_WEBHOOK_SECRET: z.string().optional().default(""),
   CHAPA_ENCRYPTION_KEY: z.string().optional().default(""),
   FAL_KEY: z.string().optional().default(""),
+  // Voice request pipeline (marketplace module). Keys stay empty in the repo;
+  // with no key the pipeline falls back to the offline parser instead of failing.
+  WHISPERFLOW_API_KEY: z.string().optional().default(""),
+  WHISPERFLOW_API_BASE: z.string().optional().default("https://api.whisperflow.ai/v1"),
+  ADDIS_AI_API_KEY: z.string().optional().default(""),
+  ADDIS_AI_API_BASE: z.string().optional().default("https://api.addisai.com/v1"),
+  ADDIS_AI_MODEL: z.string().optional().default("addis-nlp-1"),
   DEMO_MODE: z
     .string()
     .optional()
