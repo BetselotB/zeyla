@@ -1,0 +1,506 @@
+/*
+ * Onboarding — full-screen flow styled to match the app's warm/bold design
+ * language: cream-peach gradient canvas, floating pill nav, oversized bold
+ * headings, translucent cards, black pill CTAs, green reserved for verified
+ * states.
+ *
+ * The page fills the viewport the way auth/onboarding flows usually do.
+ * Everything here is scoped under .onboarding, so nothing leaks into other
+ * pages.
+ */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap");
+
+.onboarding {
+  --ink: #1a1712;
+  --muted: #8b8177;
+  --line: rgba(26, 23, 18, 0.08);
+  --line-strong: rgba(26, 23, 18, 0.16);
+  --surface: rgba(255, 255, 255, 0.58);
+  --black: #1c1a17;
+  --green: #1f9d55;
+  --green-deep: #147a3d;
+  --green-soft: #e4f6ea;
+  --warn: #b4501e;
+  --warn-soft: #fbe4d5;
+
+  align-items: center;
+  background:
+    radial-gradient(900px 620px at 6% -6%, #fbe0c6 0%, transparent 55%),
+    radial-gradient(820px 540px at 98% 6%, #fad9cd 0%, transparent 52%),
+    radial-gradient(760px 700px at 46% 112%, #eaf2e2 0%, transparent 55%),
+    linear-gradient(180deg, #fdf5ee 0%, #fdf8f3 100%);
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  gap: 1.75rem;
+  min-height: 100dvh;
+  padding: 1.25rem 1.25rem 3.5rem;
+}
+
+/* --- Top nav ---------------------------------------------------------------- */
+
+.onboarding__nav {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.62);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  border-radius: 999px;
+  box-shadow: 0 0.5rem 1.75rem rgba(140, 92, 48, 0.07);
+  display: grid;
+  flex: 0 0 auto;
+  gap: 0.75rem;
+  grid-template-columns: 1fr auto 1fr;
+  margin: 0 auto;
+  max-width: 44rem;
+  padding: 0.55rem 1rem;
+  width: 100%;
+}
+
+.onboarding__brand {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.5rem;
+  grid-column: 2;
+}
+
+.onboarding__logo {
+  align-items: center;
+  background: linear-gradient(150deg, #2bbd71, #10693a);
+  border-radius: 0.45rem;
+  box-shadow: 0 0.2rem 0.5rem rgba(16, 105, 58, 0.28);
+  color: #fff;
+  display: inline-flex;
+  font-size: 0.85rem;
+  font-weight: 800;
+  height: 1.6rem;
+  justify-content: center;
+  width: 1.6rem;
+}
+
+.onboarding__wordmark {
+  font-size: 0.9rem;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.onboarding__nav-action {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  grid-column: 1;
+  justify-self: start;
+  padding: 0.25rem 0.4rem;
+}
+
+.onboarding__nav-action:hover {
+  color: var(--ink);
+}
+
+/* --- Hero ------------------------------------------------------------------- */
+
+.onboarding__hero {
+  display: grid;
+  gap: 1rem;
+  justify-items: center;
+  margin: 0 auto;
+  max-width: 34rem;
+  text-align: center;
+  width: 100%;
+}
+
+.onboarding__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: center;
+}
+
+.onboarding__badge {
+  background: var(--black);
+  border: 1px solid var(--black);
+  border-radius: 999px;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.38rem 0.8rem;
+  white-space: nowrap;
+}
+
+.onboarding__badge--ghost {
+  background: rgba(255, 255, 255, 0.72);
+  border-color: var(--line);
+  color: var(--muted);
+}
+
+.onboarding__title {
+  font-size: clamp(1.85rem, 6.5vw, 2.6rem);
+  font-weight: 800;
+  letter-spacing: -0.032em;
+  line-height: 1.08;
+  margin: 0;
+}
+
+.onboarding__subtitle {
+  color: var(--muted);
+  font-size: 0.98rem;
+  line-height: 1.6;
+  margin: 0;
+  max-width: 28rem;
+}
+
+.onboarding__rail {
+  display: flex;
+  gap: 0.35rem;
+  justify-content: center;
+}
+
+.onboarding__rail span {
+  background: var(--line-strong);
+  border-radius: 999px;
+  height: 0.28rem;
+  transition: background 0.25s ease;
+  width: 2.6rem;
+}
+
+.onboarding__rail span.is-filled {
+  background: var(--black);
+}
+
+/* --- Card ------------------------------------------------------------------- */
+
+.onboarding__card {
+  background: var(--surface);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--line);
+  border-radius: 1.4rem;
+  box-shadow: 0 1.5rem 3.25rem rgba(140, 92, 48, 0.09);
+  margin: 0 auto;
+  max-width: 27rem;
+  padding: clamp(1.35rem, 5vw, 1.9rem);
+  width: 100%;
+}
+
+.onboarding__footnote {
+  color: var(--muted);
+  font-size: 0.76rem;
+  letter-spacing: 0.01em;
+  margin: 0 auto;
+  text-align: center;
+}
+
+/* --- Forms ------------------------------------------------------------------ */
+
+.onboarding__form {
+  display: grid;
+  gap: 1.05rem;
+}
+
+.onboarding__field {
+  display: grid;
+  font-size: 0.78rem;
+  font-weight: 700;
+  gap: 0.45rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.onboarding__field input,
+.onboarding__field select,
+.onboarding__field textarea {
+  background: #fffdfb;
+  border: 1px solid var(--line-strong);
+  border-radius: 0.8rem;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 500;
+  letter-spacing: normal;
+  padding: 0.8rem 0.9rem;
+  text-transform: none;
+  width: 100%;
+}
+
+.onboarding__field textarea {
+  min-height: 6.5rem;
+  resize: vertical;
+}
+
+.onboarding__field input::placeholder,
+.onboarding__field textarea::placeholder {
+  color: #b6ada3;
+}
+
+.onboarding__field input:focus,
+.onboarding__field select:focus,
+.onboarding__field textarea:focus {
+  border-color: var(--black);
+  outline: 3px solid rgba(28, 26, 23, 0.08);
+}
+
+.onboarding__phone-input {
+  align-items: center;
+  background: #fffdfb;
+  border: 1px solid var(--line-strong);
+  border-radius: 0.8rem;
+  display: flex;
+  overflow: hidden;
+}
+
+.onboarding__phone-input:focus-within {
+  border-color: var(--black);
+  outline: 3px solid rgba(28, 26, 23, 0.08);
+}
+
+.onboarding__phone-prefix {
+  color: var(--muted);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: normal;
+  padding: 0.8rem 0.15rem 0.8rem 0.9rem;
+}
+
+.onboarding__phone-input input {
+  border: none !important;
+  outline: none !important;
+}
+
+.onboarding__otp {
+  display: flex;
+  gap: 0.45rem;
+  justify-content: space-between;
+}
+
+.onboarding__otp-box {
+  background: #fffdfb;
+  border: 1px solid var(--line-strong);
+  border-radius: 0.8rem;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 1.3rem;
+  font-weight: 700;
+  height: 3.1rem;
+  text-align: center;
+  width: 100%;
+}
+
+.onboarding__otp-box:focus {
+  border-color: var(--black);
+  outline: 3px solid rgba(28, 26, 23, 0.08);
+}
+
+/* --- Buttons ---------------------------------------------------------------- */
+
+.onboarding__button {
+  align-items: center;
+  background: var(--black);
+  border: 1px solid var(--black);
+  border-radius: 999px;
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  font-family: inherit;
+  font-size: 0.92rem;
+  font-weight: 700;
+  gap: 0.55rem;
+  justify-content: center;
+  padding: 0.82rem 1.15rem;
+  text-decoration: none;
+  transition: opacity 0.15s ease;
+  width: 100%;
+}
+
+.onboarding__button:not(.onboarding__button--secondary)::after {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  content: "→";
+  display: inline-flex;
+  font-size: 0.75rem;
+  height: 1.3rem;
+  justify-content: center;
+  width: 1.3rem;
+}
+
+/* Actions where a forward arrow would misdescribe what happens (e.g. capture). */
+.onboarding__button--plain::after {
+  content: none !important;
+}
+
+.onboarding__button:hover:not(:disabled) {
+  opacity: 0.87;
+}
+
+.onboarding__button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.onboarding__button--secondary {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: var(--line-strong);
+  color: var(--ink);
+  font-size: 0.85rem;
+  padding: 0.7rem 1rem;
+}
+
+.onboarding__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.onboarding__actions .onboarding__button {
+  flex: 1 1 8rem;
+  width: auto;
+}
+
+/* --- Status, notices, hints ------------------------------------------------- */
+
+.onboarding__status {
+  align-items: center;
+  display: grid;
+  gap: 0.75rem;
+  justify-items: center;
+  text-align: center;
+}
+
+.onboarding__status-icon {
+  align-items: center;
+  background: var(--green-soft);
+  border: 1px solid rgba(31, 157, 85, 0.28);
+  border-radius: 50%;
+  color: var(--green-deep);
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 1.15rem;
+  font-weight: 800;
+  height: 2.9rem;
+  justify-content: center;
+  width: 2.9rem;
+}
+
+.onboarding__status-icon--warn {
+  background: var(--warn-soft);
+  border-color: rgba(180, 80, 30, 0.28);
+  color: var(--warn);
+}
+
+.onboarding__hint {
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.onboarding__notice {
+  background: var(--green-soft);
+  border: 1px solid rgba(31, 157, 85, 0.24);
+  border-radius: 0.8rem;
+  color: var(--ink);
+  font-size: 0.88rem;
+  margin: 0;
+  padding: 0.7rem 0.85rem;
+}
+
+.onboarding__notice--error {
+  background: var(--warn-soft);
+  border-color: rgba(180, 80, 30, 0.26);
+  color: #7d3612;
+}
+
+.onboarding__error,
+.onboarding__field-error {
+  color: var(--warn);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: normal;
+  margin: 0;
+  text-transform: none;
+}
+
+/* --- Capture fields --------------------------------------------------------- */
+
+.onboarding__capture-preview {
+  border: 1px solid var(--line-strong);
+  border-radius: 0.9rem;
+  overflow: hidden;
+  width: 100%;
+}
+
+.onboarding__capture-preview img {
+  display: block;
+  width: 100%;
+}
+
+.onboarding__capture-preview--round {
+  border-radius: 50%;
+  height: 9rem;
+  margin: 0 auto;
+  width: 9rem;
+}
+
+.onboarding__capture-preview--round img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.onboarding__camera-preview {
+  background: #1a1712;
+  border-radius: 0.9rem;
+  overflow: hidden;
+  width: 100%;
+}
+
+.onboarding__camera-preview video {
+  display: block;
+  transform: scaleX(-1);
+  width: 100%;
+}
+
+.onboarding__photo-picker {
+  align-items: center;
+  display: flex;
+  gap: 0.9rem;
+}
+
+.onboarding__photo-picker img {
+  border-radius: 50%;
+  height: 3.75rem;
+  object-fit: cover;
+  width: 3.75rem;
+}
+
+.onboarding__price-range {
+  display: flex;
+  gap: 0.55rem;
+}
+
+.onboarding__price-range input {
+  background: #fffdfb;
+  border: 1px solid var(--line-strong);
+  border-radius: 0.8rem;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 500;
+  letter-spacing: normal;
+  padding: 0.8rem 0.9rem;
+  width: 100%;
+}
+
+@media (max-width: 26rem) {
+  .onboarding {
+    padding: 1rem 0.9rem 3rem;
+  }
+
+  .onboarding__otp-box {
+    font-size: 1.1rem;
+    height: 2.8rem;
+  }
+}
