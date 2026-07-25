@@ -8,6 +8,7 @@ import type {
 } from "@zeyla/shared";
 import { REALTIME_EVENTS } from "@zeyla/shared";
 import { query } from "../../db/client.js";
+import { notify, notifyMany } from "../notifications/notifications.service.js";
 import { emitToProvider, emitToUser } from "../realtime/io.js";
 import type { Actor } from "./lib/actor.js";
 import { ApiError } from "./lib/errors.js";
@@ -176,6 +177,16 @@ export async function fanoutPings(
         customerName,
       } satisfies ProviderPingDto);
     }
+
+    await notifyMany(
+      pings.map((ping) => ({
+        userId: ping.providerId,
+        type: "ping_received" as const,
+        title: `New ${updated.category} job nearby`,
+        body: describeJob(updated, ping.distanceMeters),
+        data: { requestId: updated.id, pingId: ping.id, urgency: updated.urgency },
+      })),
+    );
   }
 
   return {
@@ -321,16 +332,44 @@ export async function respondToPing(
     request = await setRequestStatus(ping.requestId, "accepted");
   }
 
+  const providerName = await getUserName(ping.providerId);
+
   emitToUser(request.userId, REALTIME_EVENTS.PING_ANSWERED, {
     pingId: ping.id,
     requestId: ping.requestId,
     providerId: ping.providerId,
-    providerName: await getUserName(ping.providerId),
+    providerName,
     status: action,
     answeredAt: ping.respondedAt ?? new Date().toISOString(),
   });
 
+  if (action === "accepted" || action === "declined") {
+    await notify({
+      userId: request.userId,
+      type: action === "accepted" ? "ping_accepted" : "ping_declined",
+      title:
+        action === "accepted"
+          ? `${providerName ?? "A provider"} accepted your request`
+          : `${providerName ?? "A provider"} turned down your request`,
+      body:
+        action === "accepted"
+          ? "Agree the price and fund the escrow to get started."
+          : "We can ping other providers nearby.",
+      data: { requestId: ping.requestId, pingId: ping.id, providerId: ping.providerId },
+    });
+  }
+
   return { ping, request };
+}
+
+function describeJob(request: ServiceRequestDto, distanceMeters: number | null) {
+  const where =
+    distanceMeters === null
+      ? request.addressLabel
+      : `${(distanceMeters / 1000).toFixed(1)} km away` +
+        (request.addressLabel ? ` · ${request.addressLabel}` : "");
+  const urgency = request.urgency === "emergency" ? "Emergency · " : "";
+  return `${urgency}${where ?? "Nearby"}`;
 }
 
 /** Every ping raised for a request — the customer's "who did we ask" view. */

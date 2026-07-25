@@ -2,6 +2,7 @@ import type { FlagDto, FlagStatus, ReviewDto } from "@zeyla/shared";
 import { pool, query } from "../../db/client.js";
 import type { Actor } from "../marketplace/lib/actor.js";
 import { ApiError } from "../marketplace/lib/errors.js";
+import { notify } from "../notifications/notifications.service.js";
 import { recomputeTrustScore, type TrustRecomputeResult } from "./trust.service.js";
 
 interface ReviewRow {
@@ -106,7 +107,19 @@ export async function createReview(
     );
 
     await client.query("COMMIT");
-    return { review: toReviewDto(inserted.rows[0]!), trust };
+
+    const review = toReviewDto(inserted.rows[0]!);
+    await notify({
+      userId: row.provider_id,
+      type: "review_received",
+      title: `You received a ${input.rating}-star review`,
+      body: trust.changed
+        ? `Your trust score is now ${trust.trustScore}.`
+        : input.comment,
+      data: { reviewId: review.id, contractId: review.contractId, rating: review.rating },
+    });
+
+    return { review, trust };
   } catch (err) {
     await client.query("ROLLBACK").catch(() => {});
     throw err;
