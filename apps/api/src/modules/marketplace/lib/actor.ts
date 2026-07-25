@@ -2,15 +2,16 @@ import type { Request } from "express";
 import { ApiError } from "./errors.js";
 
 /**
- * Caller identity.
+ * Caller identity for marketplace / realtime / trust / notifications.
  *
- * TEMPORARY: Supabase JWT verification belongs to the auth module and does not
- * exist yet, so until it lands the caller sends `x-user-id`. Every consumer goes
- * through this file, so swapping in that middleware is a one-file change —
- * nothing else in marketplace/realtime/trust/notifications reads the header.
+ * The token itself is verified by `requireAuth` in the auth module (Supabase
+ * JWT or mock-OTP session, its choice) which puts the user row on the request.
+ * This file only narrows that row to what these modules need, so a route that
+ * forgets `requireAuth` fails closed with 401 instead of running unauthenticated.
  */
 export interface Actor {
   userId: string;
+  role: "user" | "provider";
 }
 
 const UUID_RE =
@@ -21,8 +22,8 @@ export function isUuid(value: unknown): value is string {
 }
 
 export function readActor(req: Request): Actor | null {
-  const header = req.header("x-user-id");
-  return isUuid(header) ? { userId: header } : null;
+  const user = req.authUser;
+  return user ? { userId: user.id, role: user.role } : null;
 }
 
 export function requireActor(req: Request): Actor {

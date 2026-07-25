@@ -92,24 +92,34 @@ async function completeJson(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
+  // AbortSignal alone is not enough if DNS/TLS stalls before the request is
+  // abortable — race a hard timeout so the keyword fallback always wins by
+  // REQUEST_TIMEOUT_MS, never hangs a customer request.
+  const timedOut = new Promise<never>((_, reject) => {
+    setTimeout(() => reject(new Error("addis_ai_timeout")), REQUEST_TIMEOUT_MS + 250);
+  });
+
   try {
-    const response = await fetch(`${env.ADDIS_AI_API_BASE}/chat/completions`, {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${env.ADDIS_AI_API_KEY}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        model: env.ADDIS_AI_MODEL,
-        temperature: 0,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: instructions },
-          { role: "user", content: userContent },
-        ],
+    const response = await Promise.race([
+      fetch(`${env.ADDIS_AI_API_BASE}/chat/completions`, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${env.ADDIS_AI_API_KEY}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          model: env.ADDIS_AI_MODEL,
+          temperature: 0,
+          response_format: { type: "json_object" },
+          messages: [
+            { role: "system", content: instructions },
+            { role: "user", content: userContent },
+          ],
+        }),
+        signal: controller.signal,
       }),
-      signal: controller.signal,
-    });
+      timedOut,
+    ]);
 
     if (!response.ok) return null;
 

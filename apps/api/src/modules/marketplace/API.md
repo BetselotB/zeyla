@@ -20,17 +20,18 @@ Errors keep the same shape with `success: false`, `data: null` (or
 | 409 | `request_not_open`, `ping_already_answered` | State machine rejection. |
 | 500 | `internal_error` | Unhandled. |
 
-## Authentication (temporary)
+## Authentication
 
-Supabase JWT verification is the auth module's job and is not wired yet. Until
-it is, endpoints that need a caller read the header:
+Write endpoints and anything that reads one caller's own rows sit behind
+`requireAuth` (auth module). Send the same token `/api/auth/otp/verify` returns:
 
 ```
-x-user-id: <uuid of the acting user>
+Authorization: Bearer <token>
 ```
 
-Swapping to real JWTs changes one file (`lib/actor.ts`) and no request shapes,
-so the UI can send this header today and forget about it later.
+Browsing providers (`GET /providers`, `GET /providers/:id`) is open — no token
+needed for the discovery map. Everything else in this module returns
+`401 unauthenticated` without a valid token.
 
 ---
 

@@ -2,7 +2,8 @@
 
 Owner: Mohammed. Consumers: every page with a bell icon.
 
-Base path `/api/notifications`. All endpoints need `x-user-id`.
+Base path `/api/notifications`. All endpoints need
+`Authorization: Bearer <token>`.
 
 **No voice.** ElevenLabs was cut, so nothing in this module speaks — it is an
 in-app feed plus live socket delivery.
@@ -17,8 +18,8 @@ who was offline still sees it.
 | `ping_accepted` | a provider accepts | `requestId`, `pingId`, `providerId` |
 | `ping_declined` | a provider declines | `requestId`, `pingId`, `providerId` |
 | `review_received` | a customer reviews a finished job | `reviewId`, `contractId`, `rating` |
-| `contract_update` | reserved for escrow | `contractId` |
-| `trust_score_changed` | reserved | `providerId` |
+| `contract_update` | escrow publishes on `zeyla:contract-events` | `contractId`, `status`, `amount` |
+| `trust_score_changed` | trust recompute after a completed job | `providerId`, `trustScore`, `delta` |
 | `system` | anything else | — |
 
 ## GET /api/notifications

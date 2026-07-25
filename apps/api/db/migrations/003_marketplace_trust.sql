@@ -1,8 +1,8 @@
--- 002 — marketplace / realtime / trust support columns
+-- 003 — marketplace / realtime / trust support columns
 -- Owner: Mohammed (marketplace, realtime, notifications, trust)
 --
--- Additive only. 001 has already been applied on other machines, so this file
--- never rewrites it. Every statement is safe to run twice.
+-- Additive only. 001 and 002 have already been applied on other machines, so
+-- this file never rewrites them. Every statement is safe to run twice.
 
 -- ---------------------------------------------------------------------------
 -- providers

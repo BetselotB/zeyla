@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import type { ProviderTrustDto } from "@zeyla/shared";
 import { computeTrustScore } from "@zeyla/shared";
+import { requireAuth } from "../auth/middleware.js";
 import { requireActor } from "../marketplace/lib/actor.js";
 import { handle } from "../marketplace/lib/handle.js";
 import { uuidSchema } from "../marketplace/schemas.js";
@@ -98,6 +99,7 @@ trustRouter.get(
  */
 trustRouter.post(
   "/providers/:id/recompute",
+  requireAuth,
   handle(async (req) => {
     const providerId = uuidSchema.parse(req.params.id);
     const reason = z
@@ -140,6 +142,7 @@ trustRouter.get(
 
 trustRouter.post(
   "/reviews",
+  requireAuth,
   handle(
     async (req) => {
       const actor = requireActor(req);
@@ -152,6 +155,7 @@ trustRouter.post(
 
 trustRouter.post(
   "/flags",
+  requireAuth,
   handle(
     async (req) => {
       const actor = requireActor(req);

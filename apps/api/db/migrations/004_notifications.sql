@@ -1,9 +1,9 @@
--- 003 — in-app notification feed
+-- 004 — in-app notification feed
 -- Owner: Mohammed (notifications module)
 --
--- Separate from 002 on purpose: 002 only touches tables 001 already created,
--- this one adds a table. If the team decides the feed is not worth the row
--- count during the demo, this file can be dropped on its own.
+-- Separate from 003 on purpose: that one only touches tables 001 already
+-- created, this one adds a table. If the team decides the feed is not worth the
+-- row count during the demo, this file can be dropped on its own.
 
 CREATE TABLE IF NOT EXISTS notifications (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -16,6 +16,8 @@ import {
 import { recordLocation } from "./location.service.js";
 import { getContractParties, isContractMember } from "./membership.js";
 import { setProviderPresence } from "./presence.service.js";
+import { identifySocket, type SocketIdentity } from "./socket-auth.js";
+import { startContractEventBridge } from "./contract-events.js";
 
 const locationEventSchema = z.object({
   contractId: z.string().uuid(),
@@ -26,23 +28,14 @@ const locationEventSchema = z.object({
   accuracyMeters: z.coerce.number().min(0).max(10_000).nullish(),
 });
 
-interface SocketIdentity {
-  userId: string;
-  role: "user" | "provider";
-}
-
 /**
  * Realtime transport.
  *
- * Rooms are joined server-side from the handshake identity, never from a
- * client-supplied room name, so a socket cannot listen in on someone else's
- * pings by guessing a user id. Contract rooms are checked against the contract
- * parties before the join is allowed.
- *
- * TEMPORARY: identity comes from `handshake.auth` for the same reason the REST
- * side reads `x-user-id` — Supabase JWT verification is not wired yet. Verify
- * the token here when the auth module lands; no client-side change is needed
- * beyond sending the token instead of the id.
+ * Identity comes from the same bearer token the REST side uses, verified on the
+ * handshake (see ./socket-auth.ts). Rooms are then joined server-side from that
+ * verified identity, never from a client-supplied room name, so a socket cannot
+ * listen in on someone else's pings by guessing a user id. Contract rooms are
+ * additionally checked against the contract parties before the join is allowed.
  */
 export function attachRealtime(httpServer: HttpServer) {
   const io = new Server(httpServer, {
@@ -50,17 +43,16 @@ export function attachRealtime(httpServer: HttpServer) {
   });
 
   io.use((socket, next) => {
-    const auth = socket.handshake.auth as { userId?: string; role?: string };
-    if (!isUuid(auth?.userId)) {
-      next(new Error("unauthenticated"));
-      return;
-    }
-    const identity: SocketIdentity = {
-      userId: auth.userId,
-      role: auth.role === "provider" ? "provider" : "user",
-    };
-    socket.data.identity = identity;
-    next();
+    identifySocket(socket.handshake)
+      .then((identity) => {
+        if (!identity) {
+          next(new Error("unauthenticated"));
+          return;
+        }
+        socket.data.identity = identity;
+        next();
+      })
+      .catch(() => next(new Error("auth_unavailable")));
   });
 
   io.on("connection", (socket) => {
@@ -101,6 +93,9 @@ export function attachRealtime(httpServer: HttpServer) {
   });
 
   setIo(io);
+  // Escrow announces contract transitions on Redis rather than calling this
+  // module directly, so the bridge only makes sense once `io` can deliver.
+  startContractEventBridge();
   return io;
 }
 

@@ -14,7 +14,14 @@ import { fileURLToPath } from "node:url";
  *
  * They expect apps/api/db/seeds/marketplace_demo.sql to be loaded.
  */
-const SUITES = ["ping-flow", "tracking", "trust", "notifications", "voice"];
+const SUITES = [
+  "ping-flow",
+  "tracking",
+  "trust",
+  "notifications",
+  "voice",
+  "contract-events",
+];
 const here = path.dirname(fileURLToPath(import.meta.url));
 const port = process.env.ZEYLA_PORT ?? "4000";
 
@@ -22,7 +29,14 @@ const run = (suite) =>
   new Promise((resolve) => {
     const child = spawn(process.execPath, [path.join(here, `${suite}.mjs`)], {
       stdio: "inherit",
-      env: { ...process.env, ZEYLA_PORT: port },
+      env: {
+        ...process.env,
+        ZEYLA_PORT: port,
+        // Suites assert the offline keyword parser. A real Addis key in
+        // apps/api/.env would make voice/parse hang on a live HTTP call.
+        ADDIS_AI_API_KEY: "",
+        WHISPERFLOW_API_KEY: "",
+      },
     });
     child.on("exit", (code) => resolve(code ?? 1));
   });

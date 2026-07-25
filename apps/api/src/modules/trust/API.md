@@ -3,7 +3,9 @@
 Owner: Mohammed. Consumers: Reviews UI, Discovery UI (Daniel), escrow (Betselot).
 
 Base path `/api/trust`. Same envelope and error conventions as the marketplace
-doc; writes need the `x-user-id` header.
+doc. Reads of scores/reviews/flags are open; writes
+(`POST /reviews`, `POST /flags`, `POST /providers/:id/recompute`) need
+`Authorization: Bearer <token>`.
 
 ## The formula
 

@@ -49,6 +49,20 @@ export function emitToContract(contractId: string, event: string, payload: unkno
   return emit(contractRoom(contractId), event, payload);
 }
 
+/**
+ * One emit to several rooms. Socket.io unions the rooms, so a socket sitting in
+ * two of them still receives the event exactly once — which is the whole point
+ * when the customer is both a contract-room member and a user-room member.
+ */
+export function emitToRooms(rooms: string[], event: string, payload: unknown) {
+  if (!io) {
+    console.warn(`[realtime] no socket server yet, dropped ${event}`);
+    return false;
+  }
+  io.to(rooms).emit(event, payload);
+  return true;
+}
+
 /** How many sockets are currently in a room — used by /realtime/status. */
 export async function roomSize(room: string): Promise<number> {
   if (!io) return 0;

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { requireAuth } from "../auth/middleware.js";
 import { parseServiceRequest } from "./ai/addisAi.js";
 import { getProviderDetail, searchProviders } from "./discovery.service.js";
 import { requireActor } from "./lib/actor.js";
@@ -30,6 +31,10 @@ import { createRequestFromVoice } from "./voice.service.js";
 /**
  * Marketplace — discovery, service requests, pings.
  * Request/response shapes: see ./API.md (shared with the discovery UI).
+ *
+ * Browsing providers is open; anything that writes, or that reads one caller's
+ * own rows, sits behind `requireAuth` and reads its identity from the verified
+ * token rather than from anything the client sends in the body.
  */
 export const marketplaceRouter = Router();
 
@@ -57,6 +62,7 @@ marketplaceRouter.get(
 
 marketplaceRouter.post(
   "/requests",
+  requireAuth,
   handle(
     async (req) => {
       const actor = requireActor(req);
@@ -70,6 +76,7 @@ marketplaceRouter.post(
 
 marketplaceRouter.get(
   "/requests",
+  requireAuth,
   handle(async (req) => {
     const actor = requireActor(req);
     const requests = await listServiceRequests(actor);
@@ -79,6 +86,7 @@ marketplaceRouter.get(
 
 marketplaceRouter.get(
   "/requests/:id",
+  requireAuth,
   handle(async (req) => {
     const actor = requireActor(req);
     const requestId = uuidSchema.parse(req.params.id);
@@ -92,6 +100,7 @@ marketplaceRouter.get(
 
 marketplaceRouter.post(
   "/requests/:id/pings",
+  requireAuth,
   handle(
     async (req) => {
       const actor = requireActor(req);
@@ -108,6 +117,7 @@ marketplaceRouter.post(
 /** Whisperflow transcript -> Addis AI parse -> a real service request. */
 marketplaceRouter.post(
   "/voice-requests",
+  requireAuth,
   handle(
     async (req) => {
       const actor = requireActor(req);
@@ -118,9 +128,13 @@ marketplaceRouter.post(
   ),
 );
 
-/** Parse only — lets the UI preview what was understood before committing. */
+/**
+ * Parse only — lets the UI preview what was understood before committing.
+ * Behind auth because it spends Addis AI quota on whatever text it is handed.
+ */
 marketplaceRouter.post(
   "/voice/parse",
+  requireAuth,
   handle(async (req) => {
     const { transcript } = voiceParseSchema.parse(req.body);
     const parse = await parseServiceRequest(transcript);
@@ -131,6 +145,7 @@ marketplaceRouter.post(
 /** Provider inbox. */
 marketplaceRouter.get(
   "/pings",
+  requireAuth,
   handle(async (req) => {
     const actor = requireActor(req);
     const filters = providerPingsQuerySchema.parse(req.query);
@@ -141,6 +156,7 @@ marketplaceRouter.get(
 
 marketplaceRouter.post(
   "/pings/:id/respond",
+  requireAuth,
   handle(async (req) => {
     const actor = requireActor(req);
     const pingId = uuidSchema.parse(req.params.id);

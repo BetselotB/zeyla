@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { REALTIME_EVENTS } from "@zeyla/shared";
 import { env } from "../../config/env.js";
+import { requireAuth } from "../auth/middleware.js";
 import { requireActor } from "../marketplace/lib/actor.js";
 import { ApiError } from "../marketplace/lib/errors.js";
 import { handle } from "../marketplace/lib/handle.js";
@@ -44,9 +45,10 @@ realtimeRouter.get("/status", (_req, res) => {
     success: true,
     data: {
       transport: "socket.io",
-      handshake: { auth: { userId: "<uuid>", role: "user | provider" } },
+      handshake: { auth: { token: "<Bearer token from /api/auth/otp/verify>" } },
       locationTtlSeconds: LOCATION_TTL_SECONDS,
       demoMode: env.DEMO_MODE,
+      contractEventsChannel: "zeyla:contract-events",
       events: {
         clientToServer: [
           REALTIME_EVENTS.JOIN_CONTRACT,
@@ -58,6 +60,7 @@ realtimeRouter.get("/status", (_req, res) => {
           REALTIME_EVENTS.PING_INCOMING,
           REALTIME_EVENTS.PING_ANSWERED,
           REALTIME_EVENTS.CONTRACT_LOCATION,
+          REALTIME_EVENTS.CONTRACT_STATUS,
           REALTIME_EVENTS.PRESENCE_CHANGED,
           REALTIME_EVENTS.NOTIFICATION_NEW,
           REALTIME_EVENTS.REALTIME_ERROR,
@@ -71,6 +74,7 @@ realtimeRouter.get("/status", (_req, res) => {
 /** REST twin of the `provider:location` socket event. */
 realtimeRouter.post(
   "/contracts/:id/location",
+  requireAuth,
   handle(async (req) => {
     const actor = requireActor(req);
     const contractId = uuidSchema.parse(req.params.id);
@@ -82,6 +86,7 @@ realtimeRouter.post(
 
 realtimeRouter.get(
   "/contracts/:id/location",
+  requireAuth,
   handle(async (req) => {
     const actor = requireActor(req);
     const contractId = uuidSchema.parse(req.params.id);
@@ -101,6 +106,7 @@ realtimeRouter.get(
 /** Demo only: animate the provider toward the job over the same socket path. */
 realtimeRouter.post(
   "/contracts/:id/simulate",
+  requireAuth,
   handle(async (req) => {
     const actor = requireActor(req);
     const contractId = uuidSchema.parse(req.params.id);
@@ -111,6 +117,7 @@ realtimeRouter.post(
 
 realtimeRouter.delete(
   "/contracts/:id/simulate",
+  requireAuth,
   handle(async (req) => {
     const actor = requireActor(req);
     const contractId = uuidSchema.parse(req.params.id);

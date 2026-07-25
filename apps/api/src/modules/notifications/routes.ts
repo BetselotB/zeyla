@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { notImplemented } from "../../lib/respond.js";
+import { requireAuth } from "../auth/middleware.js";
 import { requireActor } from "../marketplace/lib/actor.js";
 import { handle } from "../marketplace/lib/handle.js";
 import { uuidSchema } from "../marketplace/schemas.js";
@@ -29,6 +30,7 @@ const feedQuerySchema = z.object({
 
 notificationsRouter.get(
   "/",
+  requireAuth,
   handle(async (req) => {
     const actor = requireActor(req);
     const options = feedQuerySchema.parse(req.query);
@@ -38,6 +40,7 @@ notificationsRouter.get(
 
 notificationsRouter.post(
   "/:id/read",
+  requireAuth,
   handle(async (req) => {
     const actor = requireActor(req);
     const id = uuidSchema.parse(req.params.id);
@@ -48,6 +51,7 @@ notificationsRouter.post(
 
 notificationsRouter.post(
   "/read-all",
+  requireAuth,
   handle(async (req) => {
     const actor = requireActor(req);
     return markAllRead(actor);

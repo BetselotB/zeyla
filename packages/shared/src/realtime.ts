@@ -2,10 +2,13 @@
  * Socket.io contract between the API (apps/api/src/modules/realtime) and the
  * tracking / discovery pages.
  *
- * Handshake: io(API_URL, { auth: { userId, role } }).
- * `role: "provider"` also joins the provider room, which is where pings land.
+ * Handshake: io(API_URL, { auth: { token } }) — the same bearer token the REST
+ * endpoints take. The server derives the user and their role from it; a user
+ * whose role is "provider" also joins the provider room, which is where pings
+ * land.
  */
 
+import type { ContractEventMessage } from "./identity-money.js";
 import type { ProviderPingDto } from "./marketplace.js";
 
 export const REALTIME_EVENTS = {
@@ -18,14 +21,15 @@ export const REALTIME_EVENTS = {
   PING_INCOMING: "ping:incoming",
   PING_ANSWERED: "ping:answered",
   CONTRACT_LOCATION: "contract:location",
+  CONTRACT_STATUS: "contract:status",
   PRESENCE_CHANGED: "presence:changed",
   NOTIFICATION_NEW: "notification:new",
   REALTIME_ERROR: "realtime:error",
 } as const;
 
 export interface SocketAuth {
-  userId: string;
-  role?: "user" | "provider";
+  /** Supabase access token or mock-OTP session token, same as `Authorization`. */
+  token: string;
 }
 
 /** One GPS sample from a provider during an active contract. */
@@ -84,6 +88,8 @@ export interface ServerToClientEvents {
   [REALTIME_EVENTS.PING_INCOMING]: (payload: ProviderPingDto) => void;
   [REALTIME_EVENTS.PING_ANSWERED]: (payload: PingAnsweredEvent) => void;
   [REALTIME_EVENTS.CONTRACT_LOCATION]: (payload: LiveLocation) => void;
+  /** Mirrors an escrow state-machine transition onto the live map screen. */
+  [REALTIME_EVENTS.CONTRACT_STATUS]: (payload: ContractEventMessage) => void;
   [REALTIME_EVENTS.PRESENCE_CHANGED]: (payload: PresenceChangedEvent) => void;
   [REALTIME_EVENTS.NOTIFICATION_NEW]: (payload: unknown) => void;
   [REALTIME_EVENTS.REALTIME_ERROR]: (payload: RealtimeErrorEvent) => void;

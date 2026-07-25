@@ -22,6 +22,10 @@ pnpm --filter @zeyla/api smoke        # or: ZEYLA_PORT=4001 pnpm --filter @zeyla
 Point them at a scratch database, not one with data you care about — they create
 requests, reviews and flags as they go.
 
+Auth: suites log in through mock OTP (`AUTH_OTP_PROVIDER=mock`) and send
+`Authorization: Bearer <token>` / `auth: { token }` on sockets — the same
+contract Daniel's UI uses.
+
 | Suite | Covers |
 | --- | --- |
 | `ping-flow` | request creation, PostGIS fan-out, dedupe, provider inbox, accept/decline, who may answer |
@@ -29,6 +33,7 @@ requests, reviews and flags as they go.
 | `trust` | the formula against hand-computed values, the audit log, reviews, flags, one-flag-per-reporter |
 | `notifications` | live `notification:new`, feed, unread badge, read/read-all, ownership |
 | `voice` | keyword parse (English + Amharic), full voice→request pipeline, degradation with no API keys |
+| `contract-events` | Redis `zeyla:contract-events` → `contract:status` socket + in-app notification + trust recompute |
 
 The suites assume the seed's fixed UUIDs (Sara, Abebe, Hanna, contract `…390`)
 and are safe to re-run: the trust suite clears the review and flags it wrote

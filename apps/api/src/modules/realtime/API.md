@@ -11,24 +11,28 @@ import { io } from "socket.io-client";
 import { REALTIME_EVENTS } from "@zeyla/shared";
 
 const socket = io(import.meta.env.VITE_API_URL, {
-  auth: { userId, role: "user" }, // role: "provider" for the provider app
+  auth: { token }, // same Bearer token as REST — role comes from the users row
 });
 ```
 
-The handshake is rejected with `unauthenticated` if `userId` is missing or not
-a UUID. Rooms are joined **server-side** from that identity — a client cannot
-ask to join `user:<someone else>`.
+The handshake is rejected with `unauthenticated` if the token is missing or
+invalid. Rooms are joined **server-side** from that verified identity — a
+client cannot ask to join `user:<someone else>`.
 
 | Room | Who is in it | What arrives |
 | --- | --- | --- |
-| `user:{userId}` | every socket of that user | `ping:answered`, `notification:new` |
-| `provider:{providerId}` | sockets connected with `role: "provider"` | `ping:incoming`, `presence:changed` |
-| `contract:{contractId}` | the customer + provider on that job | `contract:location` |
+| `user:{userId}` | every socket of that user | `ping:answered`, `notification:new`, `contract:status` |
+| `provider:{providerId}` | sockets whose DB role is `provider` | `ping:incoming`, `presence:changed` |
+| `contract:{contractId}` | the customer + provider on that job | `contract:location`, `contract:status` |
 
-Connecting with `role: "provider"` marks the provider online; disconnecting the
-last socket marks them offline. That flag is what `onlineOnly` filters on in
-discovery and in the ping fan-out, so the provider app should stay connected
-while the provider is available.
+A provider socket marks the provider online; disconnecting the last socket marks
+them offline. That flag is what `onlineOnly` filters on in discovery and in the
+ping fan-out.
+
+Escrow publishes every contract transition on Redis channel
+`zeyla:contract-events`. This module bridges that onto `contract:status` sockets
+and writes in-app `contract_update` / `trust_score_changed` notifications
+(including a trust recompute when a job completes).
 
 ## Client -> server
 
@@ -46,6 +50,7 @@ while the provider is available.
 | `ping:incoming` | `ProviderPingDto` — the ping plus the full request and customer name |
 | `ping:answered` | `{ pingId, requestId, providerId, providerName, status, answeredAt }` |
 | `contract:location` | `LiveLocation` |
+| `contract:status` | `ContractEventMessage` — escrow state-machine transition |
 | `presence:changed` | `{ providerId, isOnline, at }` |
 | `notification:new` | `NotificationDto` |
 | `realtime:error` | `{ event, message }` — a rejected frame, never a disconnect |
@@ -72,7 +77,7 @@ because killing it would blank the customer's map.
 ## REST mirrors
 
 For clients that cannot hold a socket open, and for the demo. All of these need
-`x-user-id` (see the marketplace API doc for why).
+`Authorization: Bearer <token>` (same token as `/api/auth/otp/verify`).
 
 ### GET /api/realtime/status
 
