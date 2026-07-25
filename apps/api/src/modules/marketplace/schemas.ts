@@ -61,6 +61,22 @@ export const pingResponseSchema = z.object({
   action: z.enum(["seen", "accepted", "declined"]),
 });
 
+export const voiceRequestSchema = z.object({
+  audioUrl: z.string().url().max(1000).optional(),
+  /** Base64 audio for a short clip; larger recordings should be uploaded and sent as a URL. */
+  audioBase64: z.string().max(8_000_000).optional(),
+  transcript: z.string().trim().min(2).max(2000).optional(),
+  mimeType: z.string().max(80).optional(),
+  language: z.string().max(16).optional(),
+  lat: latSchema,
+  lng: lngSchema,
+  radiusMeters: z.coerce.number().int().min(100).max(50_000).optional(),
+});
+
+export const voiceParseSchema = z.object({
+  transcript: z.string().trim().min(2).max(2000),
+});
+
 export const providerPingsQuerySchema = z.object({
   status: z.enum(["sent", "seen", "accepted", "declined"]).optional(),
   limit: z.coerce.number().int().min(1).max(50).default(20),

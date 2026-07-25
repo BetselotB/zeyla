@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { parseServiceRequest } from "./ai/addisAi.js";
 import { getProviderDetail, searchProviders } from "./discovery.service.js";
 import { requireActor } from "./lib/actor.js";
 import { handle } from "./lib/handle.js";
@@ -21,7 +22,10 @@ import {
   providerPingsQuerySchema,
   providerSearchSchema,
   uuidSchema,
+  voiceParseSchema,
+  voiceRequestSchema,
 } from "./schemas.js";
+import { createRequestFromVoice } from "./voice.service.js";
 
 /**
  * Marketplace — discovery, service requests, pings.
@@ -97,6 +101,31 @@ marketplaceRouter.post(
     },
     { status: 201 },
   ),
+);
+
+// --- Voice requests ----------------------------------------------------------
+
+/** Whisperflow transcript -> Addis AI parse -> a real service request. */
+marketplaceRouter.post(
+  "/voice-requests",
+  handle(
+    async (req) => {
+      const actor = requireActor(req);
+      const input = voiceRequestSchema.parse(req.body);
+      return createRequestFromVoice(actor, input);
+    },
+    { status: 201 },
+  ),
+);
+
+/** Parse only — lets the UI preview what was understood before committing. */
+marketplaceRouter.post(
+  "/voice/parse",
+  handle(async (req) => {
+    const { transcript } = voiceParseSchema.parse(req.body);
+    const parse = await parseServiceRequest(transcript);
+    return { transcript, parse };
+  }),
 );
 
 /** Provider inbox. */

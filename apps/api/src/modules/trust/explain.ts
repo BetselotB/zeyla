@@ -1,5 +1,6 @@
 import type { TrustExplanation, TrustFactor, TrustScoreBreakdown } from "@zeyla/shared";
 import { TRUST_SCORE_MAX } from "@zeyla/shared";
+import { rewriteTrustSummary } from "../marketplace/ai/addisAi.js";
 import type { TrustInputs } from "./trust.service.js";
 
 const round = (n: number) => Math.round(n * 10) / 10;
@@ -80,6 +81,28 @@ export function buildTrustExplanation(
     factors,
     source: "template",
   };
+}
+
+/**
+ * Optional Addis AI pass over the same explanation.
+ *
+ * Only the prose changes: the factor list, the points and the total stay
+ * exactly as computed, and a failed or unconfigured call returns the template
+ * untouched. The model is handed the finished facts, so it has nothing to
+ * invent.
+ */
+export async function withAiSummary(
+  explanation: TrustExplanation,
+): Promise<TrustExplanation> {
+  const facts = [
+    explanation.headline,
+    ...explanation.factors.map((f) => `${f.label}: ${f.points >= 0 ? "+" : ""}${f.points} — ${f.detail}`),
+  ].join("\n");
+
+  const summary = await rewriteTrustSummary(facts);
+  if (!summary) return explanation;
+
+  return { ...explanation, summary, source: "addis_ai" };
 }
 
 function buildSummary(

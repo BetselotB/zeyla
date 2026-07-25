@@ -307,9 +307,89 @@ it; anyone else gets 404. Accepting sets the request to `accepted` and emits
 side calls the escrow module once a provider accepts; that module owns
 `contracts` and `escrow_ledger`.
 
+---
+
+## Voice requests (Whisperflow → Addis AI)
+
+### POST /api/marketplace/voice-requests → 201
+
+Speech to a real service request in one call. Requires `x-user-id`.
+
+```json
+{
+  "audioUrl": "https://storage.example/clip.m4a",
+  "audioBase64": null,
+  "transcript": null,
+  "mimeType": "audio/m4a",
+  "language": "am",
+  "lat": 8.995,
+  "lng": 38.787,
+  "radiusMeters": 5000
+}
+```
+
+Send exactly one of `audioUrl`, `audioBase64` or `transcript`. `transcript`
+skips Whisperflow — use it when the browser already did speech-to-text, and for
+testing. `lat`/`lng` are the device GPS and are **required**.
+
+```json
+{
+  "success": true,
+  "data": {
+    "request": { "...": "ServiceRequestDto, category/urgency filled from the parse" },
+    "transcription": {
+      "transcript": "My toilet is overflowing at Megenagna, please send a plumber immediately",
+      "language": "en",
+      "durationSeconds": 6.2,
+      "source": "whisperflow"
+    },
+    "parse": {
+      "category": "plumber",
+      "urgency": "emergency",
+      "location": { "label": "Megenagna", "lat": null, "lng": null },
+      "confidence": 0.6,
+      "source": "heuristic"
+    },
+    "needsConfirmation": false
+  },
+  "error": null
+}
+```
+
+Behaviour worth designing around:
+
+- **`needsConfirmation: true`** means the parse was weak (confidence < 0.6 or
+  category `other`). The request is still created — show a confirm screen with
+  the category editable instead of asking the customer to record again.
+- **The spoken place is only a label.** `request.lat/lng` always come from the
+  device GPS; a misheard neighbourhood must never move the pin.
+- **`parse.source`** is `addis_ai` when the model answered and `heuristic` when
+  the offline keyword parser did (no API key, timeout, or unusable answer). The
+  pipeline never fails just because NLP is down.
+- The full transcript is stored on `request.voiceTranscript` and the parse on
+  `request.nlp`.
+- 503 `whisperflow_not_configured` / `whisperflow_failed` / `whisperflow_timeout`
+  when audio was sent but transcription is unavailable. Sending `transcript`
+  directly always works.
+
+### POST /api/marketplace/voice/parse
+
+Parse without creating anything — for a live "we heard: plumber, emergency"
+preview.
+
+```json
+{ "transcript": "The pipe under my sink burst, I need someone right now in Bole" }
+```
+
+→ `{ "transcript": "...", "parse": VoiceParseResult }`
+
+The keyword fallback understands English and Amharic (ቧንቧ, መብራት, ጽዳት …) and
+recognises Addis neighbourhoods (Bole, Piassa, Megenagna, CMC …).
+
 ## Types
 
 TypeScript types are exported from `@zeyla/shared` — import them instead of
 re-declaring: `ProviderSummary`, `ProviderDetail`, `ProviderSearchQuery`,
 `ProviderSearchResult`, `ServiceRequestDto`, `PingDto`, `ProviderPingDto`,
-`PingFanoutResult`, `ServiceCategory`, `Urgency`.
+`PingFanoutResult`, `VoiceParseResult`, `VoiceTranscriptResult`,
+`ServiceCategory`, `Urgency`, `SERVICE_CATEGORIES`, `URGENCY_LEVELS`.

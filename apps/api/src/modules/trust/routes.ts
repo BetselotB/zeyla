@@ -5,7 +5,7 @@ import { computeTrustScore } from "@zeyla/shared";
 import { requireActor } from "../marketplace/lib/actor.js";
 import { handle } from "../marketplace/lib/handle.js";
 import { uuidSchema } from "../marketplace/schemas.js";
-import { buildTrustExplanation } from "./explain.js";
+import { buildTrustExplanation, withAiSummary } from "./explain.js";
 import {
   createFlag,
   createReview,
@@ -67,6 +67,12 @@ trustRouter.get(
     const inputs = await getTrustInputs(providerId);
     const breakdown = scoreFromInputs(inputs);
 
+    const template = buildTrustExplanation(breakdown, inputs, inputs.providerName);
+    // ?explain=ai rephrases the same facts; it silently keeps the template when
+    // Addis AI is unconfigured or slow, so the panel always renders.
+    const explanation =
+      req.query.explain === "ai" ? await withAiSummary(template) : template;
+
     return {
       providerId,
       providerName: inputs.providerName,
@@ -80,7 +86,7 @@ trustRouter.get(
         kycSubmitted: inputs.kycSubmitted,
         firecrawlMatched: inputs.firecrawlMatched,
       },
-      explanation: buildTrustExplanation(breakdown, inputs, inputs.providerName),
+      explanation,
     };
   }),
 );
