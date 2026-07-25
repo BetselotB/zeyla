@@ -1,37 +1,9 @@
 /**
- * Contract types for the onboarding flow (login/OTP, KYC, provider profile).
- * Mirrors the `{ success, data, error }` envelope from apps/api/src/lib/respond.ts.
- * Keep these in sync with Betselot's real routes as they land — see api.ts
- * for exactly which calls are still mocked.
+ * Local-only types for the parts of onboarding that aren't in @zeyla/shared
+ * yet — OTP, KYC, and account fields are real (import those from
+ * @zeyla/shared directly). Provider business details below are still mocked;
+ * see the TODO(mohammed) in api.ts.
  */
-
-export type ApiResponse<T> = {
-  success: boolean;
-  data: T | null;
-  error: string | null;
-};
-
-export type OtpRequestResponse = {
-  requestId: string;
-  expiresInSeconds: number;
-};
-
-export type OtpVerifyResponse = {
-  accessToken: string;
-  userId: string;
-  role: "user" | "provider" | null;
-};
-
-export type KycStatus = "pending" | "submitted" | "verified" | "rejected";
-
-export type KycStatusResponse = {
-  status: KycStatus;
-  reason: string | null;
-};
-
-export type KycSubmitResponse = {
-  status: KycStatus;
-};
 
 export type ProviderProfilePayload = {
   fullName: string;

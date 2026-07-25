@@ -1,141 +1,97 @@
 import type {
   ApiResponse,
-  KycStatus,
+  AuthUser,
   KycStatusResponse,
-  KycSubmitResponse,
-  OtpRequestResponse,
-  OtpVerifyResponse,
-  ProviderProfilePayload,
-  ProviderProfileResponse,
-} from "./types";
+  RequestOtpResponse,
+  UpdateProfileBody,
+  VerifyOtpResponse,
+} from "@zeyla/shared";
+import { authHeaders, setAuthToken } from "./authToken";
+import { fileToBase64 } from "./fileToBase64";
+import type { ProviderProfilePayload, ProviderProfileResponse } from "./types";
 
 const apiUrl = (path: string) => `${import.meta.env.VITE_API_URL ?? ""}${path}`;
 
 async function callApi<T>(path: string, options?: RequestInit): Promise<ApiResponse<T>> {
   const response = await fetch(apiUrl(path), options);
-  return response.json() as Promise<ApiResponse<T>>;
+  const body = (await response.json()) as ApiResponse<T>;
+  return body;
 }
 
-/**
- * Tries Betselot's real endpoint first. If it isn't wired yet (network error,
- * or the `{ success: false, error: "not_implemented" }` stub shape), falls
- * back to a mock that matches the same contract so the screen never blocks
- * on backend availability.
- */
-async function callApiOrMock<T>(
-  path: string,
-  options: RequestInit | undefined,
-  mock: () => Promise<T>,
-  mockLabel: string,
-): Promise<T> {
-  try {
-    const response = await callApi<T>(path, options);
-    if (response.success && response.data) return response.data;
-    if (response.error && response.error !== "not_implemented") {
-      throw new Error(response.error);
-    }
-  } catch {
-    // Network error (endpoint doesn't exist yet, API not running, etc.) — fall through to mock.
+/** Throws with the backend's snake_case error code so callers can match on it. */
+async function callApiRequired<T>(path: string, options?: RequestInit): Promise<T> {
+  const response = await callApi<T>(path, options);
+  if (!response.success || !response.data) {
+    throw new Error(response.error ?? "request_failed");
   }
-  console.warn(`[onboarding] ${mockLabel}: backend not ready, using mocked response.`);
-  return mock();
+  return response.data;
+}
+
+// See docs/api/identity-money.md — real endpoint, matches @zeyla/shared exactly.
+export function requestOtp(phone: string): Promise<RequestOtpResponse> {
+  return callApiRequired<RequestOtpResponse>("/api/auth/otp/request", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ phone }),
+  });
+}
+
+// See docs/api/identity-money.md. Persists the bearer token on success.
+export async function verifyOtp(phone: string, code: string): Promise<VerifyOtpResponse> {
+  const result = await callApiRequired<VerifyOtpResponse>("/api/auth/otp/verify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ phone, code }),
+  });
+  setAuthToken(result.token);
+  return result;
+}
+
+export function getMe(): Promise<AuthUser> {
+  return callApiRequired<AuthUser>("/api/auth/me", { headers: authHeaders() });
+}
+
+export function updateProfile(body: UpdateProfileBody): Promise<AuthUser> {
+  return callApiRequired<AuthUser>("/api/auth/me", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(body),
+  });
+}
+
+// Real endpoint expects base64 JSON, not multipart — see docs/api/identity-money.md.
+export async function submitKyc(idDocument: File, selfie: File): Promise<KycStatusResponse> {
+  const [idDocBase64, selfieBase64] = await Promise.all([fileToBase64(idDocument), fileToBase64(selfie)]);
+  return callApiRequired<KycStatusResponse>("/api/auth/kyc/upload", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ idDocBase64, selfieBase64 }),
+  });
+}
+
+export function getKycStatus(): Promise<KycStatusResponse> {
+  return callApiRequired<KycStatusResponse>("/api/auth/kyc/status", { headers: authHeaders() });
 }
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// TODO(betselot): swap for real POST /api/auth/otp/request once the OTP-over-backend
-// contract is live. Expected request body: { phone: "+2519XXXXXXXX" }.
-export function requestOtp(phone: string): Promise<OtpRequestResponse> {
-  return callApiOrMock<OtpRequestResponse>(
-    "/api/auth/otp/request",
-    {
+// TODO(mohammed): no provider-profile HTTP route exists yet in the marketplace
+// module (only the `providers` table). Role itself is real — see updateProfile
+// above — but category/sub-city/bio/experience/price-range have nowhere real
+// to land yet. Mocked here matching the shape we'd expect from
+// POST /api/marketplace/providers until that route exists.
+export async function createProviderProfile(payload: ProviderProfilePayload): Promise<ProviderProfileResponse> {
+  try {
+    const response = await callApi<ProviderProfileResponse>("/api/marketplace/providers", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone }),
-    },
-    async () => {
-      await wait(400);
-      return { requestId: `mock-${Date.now()}`, expiresInSeconds: 300 };
-    },
-    "requestOtp",
-  );
-}
-
-// TODO(betselot): swap for real POST /api/auth/otp/verify. Expected request body:
-// { phone, requestId, code }. Expected success data: { accessToken, userId, role }.
-export function verifyOtp(phone: string, requestId: string, code: string): Promise<OtpVerifyResponse> {
-  return callApiOrMock<OtpVerifyResponse>(
-    "/api/auth/otp/verify",
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone, requestId, code }),
-    },
-    async () => {
-      await wait(400);
-      if (code.length !== 6) throw new Error("That code should be 6 digits.");
-      return { accessToken: `mock-token-${Date.now()}`, userId: `mock-user-${phone}`, role: null };
-    },
-    "verifyOtp",
-  );
-}
-
-// TODO(betselot): swap for real POST /api/auth/kyc/verify once Fal OCR + face-match
-// (or the demo auto-verify path) is wired. Currently posts multipart form data with
-// `idDocument` and `selfie` files.
-export function submitKyc(idDocument: File, selfie: File, accessToken: string | null): Promise<KycSubmitResponse> {
-  const formData = new FormData();
-  formData.append("idDocument", idDocument);
-  formData.append("selfie", selfie);
-
-  return callApiOrMock<KycSubmitResponse>(
-    "/api/auth/kyc/verify",
-    {
-      method: "POST",
-      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
-      body: formData,
-    },
-    async () => {
-      await wait(600);
-      // Demo behavior: documents are auto-verified, no real biometric check runs.
-      return { status: "verified" };
-    },
-    "submitKyc",
-  );
-}
-
-// TODO(betselot): swap for real GET /api/auth/kyc/status once it exists.
-// For local/demo use, append ?kycStatus=pending|submitted|verified|rejected to the
-// page URL to force a specific state without touching code.
-export function getKycStatus(fallback: KycStatus): Promise<KycStatusResponse> {
-  const override = new URLSearchParams(window.location.search).get("kycStatus") as KycStatus | null;
-  if (override && ["pending", "submitted", "verified", "rejected"].includes(override)) {
-    return Promise.resolve({ status: override, reason: override === "rejected" ? "Document image was unclear." : null });
-  }
-
-  return callApiOrMock<KycStatusResponse>(
-    "/api/auth/kyc/status",
-    undefined,
-    async () => ({ status: fallback, reason: null }),
-    "getKycStatus",
-  );
-}
-
-// TODO(betselot): swap for the real provider-profile endpoint once it exists
-// (likely POST /api/marketplace/providers — no HTTP route is wired yet, only the
-// `providers` table). Expected success data: { providerId }.
-export function createProviderProfile(payload: ProviderProfilePayload): Promise<ProviderProfileResponse> {
-  return callApiOrMock<ProviderProfileResponse>(
-    "/api/marketplace/providers",
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...authHeaders() },
       body: JSON.stringify(payload),
-    },
-    async () => {
-      await wait(500);
-      return { providerId: `mock-provider-${Date.now()}` };
-    },
-    "createProviderProfile",
-  );
+    });
+    if (response.success && response.data) return response.data;
+  } catch {
+    // Network error or route doesn't exist yet — fall through to mock.
+  }
+  console.warn("[onboarding] createProviderProfile: backend not ready, using mocked response.");
+  await wait(400);
+  return { providerId: `mock-provider-${Date.now()}` };
 }

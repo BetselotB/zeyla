@@ -1,19 +1,19 @@
-import type { KycStatus } from "../types";
+import type { KycStatus } from "@zeyla/shared";
 
 type KycStatusScreenProps = {
   status: KycStatus;
-  reason: string | null;
   onResubmit: () => void;
   onContinue: () => void;
 };
 
 /**
  * Neutral, honest copy only. "Verified" here means the demo auto-verifies
- * submitted documents — it never implies a live face-match, confidence
- * score, or liveness check took place.
+ * submitted documents (see `autoVerified` in the real API response) — it
+ * never implies a live face-match, confidence score, or liveness check
+ * took place.
  */
-export function KycStatusScreen({ status, reason, onResubmit, onContinue }: KycStatusScreenProps) {
-  if (status === "submitted" || status === "pending") {
+export function KycStatusScreen({ status, onResubmit, onContinue }: KycStatusScreenProps) {
+  if (status === "manual_review" || status === "pending") {
     return (
       <div className="onboarding__form">
         <div className="onboarding__status">
@@ -34,7 +34,7 @@ export function KycStatusScreen({ status, reason, onResubmit, onContinue }: KycS
           <span className="onboarding__status-icon onboarding__status-icon--warn">!</span>
           <div>
             <strong>We couldn't verify your documents</strong>
-            <p className="onboarding__hint">{reason ?? "Please make sure your ID and selfie are clear, then try again."}</p>
+            <p className="onboarding__hint">Please make sure your ID and selfie are clear, then try again.</p>
           </div>
         </div>
         <button className="onboarding__button" type="button" onClick={onResubmit}>

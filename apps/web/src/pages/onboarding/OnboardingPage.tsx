@@ -1,22 +1,21 @@
 import { useState } from "react";
-import { createProviderProfile, getKycStatus, requestOtp, submitKyc, verifyOtp } from "./api";
+import type { KycStatus } from "@zeyla/shared";
+import { createProviderProfile, requestOtp, submitKyc, updateProfile, verifyOtp } from "./api";
+import { EmailStep } from "./components/EmailStep";
 import { KycStatusScreen } from "./components/KycStatusScreen";
 import { KycUploadStep } from "./components/KycUploadStep";
 import { OtpStep } from "./components/OtpStep";
 import { PhoneStep } from "./components/PhoneStep";
 import { ProviderProfileForm } from "./components/ProviderProfileForm";
 import "./OnboardingPage.css";
-import type { KycStatus, ProviderProfilePayload } from "./types";
+import type { ProviderProfilePayload } from "./types";
 
-type Step = "phone" | "otp" | "kycUpload" | "kycStatus" | "providerPrompt" | "providerProfile" | "done";
+type Step = "phone" | "otp" | "email" | "kycUpload" | "kycStatus" | "providerPrompt" | "providerProfile" | "done";
 
 export function OnboardingPage() {
   const [step, setStep] = useState<Step>("phone");
   const [phone, setPhone] = useState("");
-  const [requestId, setRequestId] = useState("");
-  const [accessToken, setAccessToken] = useState<string | null>(null);
-  const [kycStatus, setKycStatus] = useState<KycStatus>("submitted");
-  const [kycReason, setKycReason] = useState<string | null>(null);
+  const [kycStatus, setKycStatus] = useState<KycStatus>("pending");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,9 +24,8 @@ export function OnboardingPage() {
     setError(null);
     setIsSubmitting(true);
     try {
-      const result = await requestOtp(fullPhone);
+      await requestOtp(fullPhone);
       setPhone(fullPhone);
-      setRequestId(result.requestId);
       setStep("otp");
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Unable to send the code.");
@@ -40,9 +38,10 @@ export function OnboardingPage() {
     setError(null);
     setIsSubmitting(true);
     try {
-      const result = await verifyOtp(phone, requestId, code);
-      setAccessToken(result.accessToken);
-      setStep("kycUpload");
+      const result = await verifyOtp(phone, code);
+      // Token is persisted by verifyOtp(). Skip straight past the email step
+      // for a returning user who already has one on file.
+      setStep(result.user.email ? "kycUpload" : "email");
     } catch (verifyError) {
       setError(verifyError instanceof Error ? verifyError.message : "That code didn't work. Try again.");
     } finally {
@@ -53,10 +52,22 @@ export function OnboardingPage() {
   const handleResend = async () => {
     setIsResending(true);
     try {
-      const result = await requestOtp(phone);
-      setRequestId(result.requestId);
+      await requestOtp(phone);
     } finally {
       setIsResending(false);
+    }
+  };
+
+  const handleEmailSubmit = async (email: string) => {
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      await updateProfile({ email });
+      setStep("kycUpload");
+    } catch (emailError) {
+      setError(emailError instanceof Error ? emailError.message : "We couldn't save that email. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -64,10 +75,8 @@ export function OnboardingPage() {
     setError(null);
     setIsSubmitting(true);
     try {
-      const submitResult = await submitKyc(idDocument, selfie, accessToken);
-      const statusResult = await getKycStatus(submitResult.status);
-      setKycStatus(statusResult.status);
-      setKycReason(statusResult.reason);
+      const result = await submitKyc(idDocument, selfie);
+      setKycStatus(result.kycStatus);
       setStep("kycStatus");
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "We couldn't submit your documents. Please try again.");
@@ -80,6 +89,7 @@ export function OnboardingPage() {
     setError(null);
     setIsSubmitting(true);
     try {
+      await updateProfile({ role: "provider" });
       await createProviderProfile(payload);
       setStep("done");
     } catch (profileError) {
@@ -93,6 +103,7 @@ export function OnboardingPage() {
   const phaseByStep: Record<Step, number> = {
     phone: 0,
     otp: 0,
+    email: 0,
     kycUpload: 1,
     kycStatus: 1,
     providerPrompt: 2,
@@ -104,6 +115,7 @@ export function OnboardingPage() {
   const cardHeading: Partial<Record<Step, string>> = {
     phone: "Enter your phone number",
     otp: "Verify your number",
+    email: "Add your email",
     kycUpload: "Verify your identity",
     providerPrompt: "Offer services on Zeyla?",
     providerProfile: "Set up your provider profile",
@@ -138,12 +150,15 @@ export function OnboardingPage() {
           />
         )}
 
+        {step === "email" && (
+          <EmailStep isSubmitting={isSubmitting} error={error} onSubmit={handleEmailSubmit} onSkip={() => setStep("kycUpload")} />
+        )}
+
         {step === "kycUpload" && <KycUploadStep isSubmitting={isSubmitting} error={error} onSubmit={handleKycSubmit} />}
 
         {step === "kycStatus" && (
           <KycStatusScreen
             status={kycStatus}
-            reason={kycReason}
             onResubmit={() => setStep("kycUpload")}
             onContinue={() => setStep("providerPrompt")}
           />
