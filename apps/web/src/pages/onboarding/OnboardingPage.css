@@ -4,10 +4,9 @@
  * headings, translucent cards, black pill CTAs, green reserved for verified
  * states.
  *
- * The page deliberately takes over the whole viewport (position: fixed) the
- * way auth/onboarding flows usually do, so the dev shell chrome in App.tsx
- * never sits on top of it. Everything here is scoped under .onboarding, so
- * nothing leaks into other pages.
+ * The page fills the viewport the way auth/onboarding flows usually do.
+ * Everything here is scoped under .onboarding, so nothing leaks into other
+ * pages.
  */
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap");
 
@@ -35,11 +34,8 @@
   flex-direction: column;
   font-family: Inter, system-ui, -apple-system, sans-serif;
   gap: 1.75rem;
-  inset: 0;
-  overflow-y: auto;
+  min-height: 100dvh;
   padding: 1.25rem 1.25rem 3.5rem;
-  position: fixed;
-  z-index: 20;
 }
 
 /* --- Top nav ---------------------------------------------------------------- */
