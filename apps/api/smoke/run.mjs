@@ -15,6 +15,7 @@ import { fileURLToPath } from "node:url";
  * They expect apps/api/db/seeds/marketplace_demo.sql to be loaded.
  */
 const SUITES = [
+  "onboarding",
   "ping-flow",
   "tracking",
   "trust",

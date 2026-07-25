@@ -2,7 +2,11 @@ import crypto from "node:crypto";
 import type { NextFunction, Request, RequestHandler, Response } from "express";
 import { env } from "../../config/env.js";
 import { fail } from "../../lib/respond.js";
-import { findUserByAuthUid, findUserById, type UserRow } from "./repo.js";
+import {
+  findUserById,
+  upsertUserByAuthIdentity,
+  type UserRow,
+} from "./repo.js";
 import { resolveSession } from "./sessions.js";
 import { isSupabaseConfigured, verifySupabaseToken } from "./supabase.js";
 
@@ -43,13 +47,18 @@ function looksLikeJwt(token: string): boolean {
  * The shape check matters: verifying with Supabase is a network round-trip, and
  * without it every mock-session request would pay for a call that is certain to
  * fail before falling through to the local lookup.
+ *
+ * A Supabase account with no Zeyla row yet gets one here rather than a 401.
+ * POST /auth/session is still the explicit bootstrap the web app calls, but a
+ * signed-in user who lands on any other endpoint first must not be locked out
+ * because of call ordering.
  */
 async function resolveUser(token: string): Promise<UserRow | null> {
   if (isSupabaseConfigured() && looksLikeJwt(token)) {
     const identity = await verifySupabaseToken(token);
     if (identity) {
-      const byUid = await findUserByAuthUid(identity.uid);
-      if (byUid) return byUid;
+      const { user } = await upsertUserByAuthIdentity(identity);
+      return user;
     }
   }
 

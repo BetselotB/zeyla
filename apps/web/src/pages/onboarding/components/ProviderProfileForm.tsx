@@ -1,29 +1,41 @@
+import { SERVICE_CATEGORIES, SUB_CITIES, type ProviderProfileInput } from "@zeyla/shared";
 import { ChangeEvent, FormEvent, useState } from "react";
-import type { ProviderProfilePayload } from "../types";
 
-const CATEGORIES = ["Home repairs", "Cleaning", "Beauty and wellness", "Lessons and tutoring", "Other"];
-const SUB_CITIES = [
-  "Addis Ketema",
-  "Akaky Kaliti",
-  "Arada",
-  "Bole",
-  "Gullele",
-  "Kirkos",
-  "Kolfe Keranio",
-  "Lideta",
-  "Nifas Silk-Lafto",
-  "Yeka",
-];
+/**
+ * Discovery filters on the canonical slug, so the value posted has to be the
+ * slug and only the label is free to read naturally.
+ */
+const CATEGORY_LABELS: Record<(typeof SERVICE_CATEGORIES)[number], string> = {
+  plumber: "Plumbing",
+  electrician: "Electrical",
+  carpenter: "Carpentry",
+  cleaner: "Cleaning",
+  painter: "Painting",
+  mechanic: "Auto repair",
+  mover: "Moving and delivery",
+  gardener: "Gardening and landscaping",
+  appliance_repair: "Appliance repair",
+  tutor: "Lessons and tutoring",
+  other: "Something else",
+};
 
 type ProviderProfileFormProps = {
   isSubmitting: boolean;
   error: string | null;
-  onSubmit: (payload: ProviderProfilePayload, photo: File | null) => void;
+  /** Prefills the name and work number already on the account. */
+  defaults?: { fullName?: string | null; phone?: string | null };
+  onSubmit: (payload: ProviderProfileInput, photo: File | null) => void;
   onSkip: () => void;
 };
 
 /** Gated behind KYC verified status — only rendered once identity is verified. */
-export function ProviderProfileForm({ isSubmitting, error, onSubmit, onSkip }: ProviderProfileFormProps) {
+export function ProviderProfileForm({
+  isSubmitting,
+  error,
+  defaults,
+  onSubmit,
+  onSkip,
+}: ProviderProfileFormProps) {
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [priceMin, setPriceMin] = useState("");
@@ -44,9 +56,9 @@ export function ProviderProfileForm({ isSubmitting, error, onSubmit, onSkip }: P
 
     const fullName = String(formData.get("fullName") ?? "").trim();
     const businessName = String(formData.get("businessName") ?? "").trim();
-    const category = String(formData.get("category") ?? "");
-    const subCity = String(formData.get("subCity") ?? "");
-    const phone = String(formData.get("phone") ?? "").trim();
+    const category = String(formData.get("category") ?? "") as ProviderProfileInput["category"];
+    const subCity = String(formData.get("subCity") ?? "") as ProviderProfileInput["subCity"];
+    const contactPhone = String(formData.get("contactPhone") ?? "").trim();
     const bio = String(formData.get("bio") ?? "").trim();
     const experienceYears = Number(formData.get("experienceYears"));
     const min = Number(priceMin);
@@ -56,16 +68,31 @@ export function ProviderProfileForm({ isSubmitting, error, onSubmit, onSkip }: P
     if (!businessName) errors.businessName = "Business name is required.";
     if (!category) errors.category = "Choose a service category.";
     if (!subCity) errors.subCity = "Choose a sub-city.";
-    if (!phone) errors.phone = "Phone number is required.";
-    if (!bio) errors.bio = "Tell customers about your service.";
-    if (!Number.isFinite(experienceYears) || experienceYears < 0) errors.experienceYears = "Enter a valid number of years.";
-    if (!priceMin || !priceMax || min < 0 || max < min) errors.priceRange = "Enter a valid price range.";
+    if (!contactPhone) errors.contactPhone = "Phone number is required.";
+    // The API asks for enough text to rank against a customer's request.
+    if (bio.length < 10) errors.bio = "Tell customers a little more — at least 10 characters.";
+    if (!Number.isFinite(experienceYears) || experienceYears < 0) {
+      errors.experienceYears = "Enter a valid number of years.";
+    }
+    if (!priceMin || !priceMax || min < 0 || max < min) {
+      errors.priceRange = "Enter a valid price range.";
+    }
 
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0) return;
 
     onSubmit(
-      { fullName, businessName, category, subCity, phone, bio, experienceYears, priceRangeMin: min, priceRangeMax: max },
+      {
+        fullName,
+        businessName,
+        category,
+        subCity,
+        contactPhone,
+        bio,
+        experienceYears,
+        priceMin: min,
+        priceMax: max,
+      },
       photo,
     );
   };
@@ -85,7 +112,7 @@ export function ProviderProfileForm({ isSubmitting, error, onSubmit, onSkip }: P
 
       <label className="onboarding__field">
         Full name
-        <input required name="fullName" autoComplete="name" />
+        <input required name="fullName" autoComplete="name" defaultValue={defaults?.fullName ?? ""} />
         {fieldErrors.fullName && <span className="onboarding__field-error">{fieldErrors.fullName}</span>}
       </label>
 
@@ -99,8 +126,8 @@ export function ProviderProfileForm({ isSubmitting, error, onSubmit, onSkip }: P
         Service category
         <select required name="category" defaultValue="">
           <option value="" disabled>Select a category</option>
-          {CATEGORIES.map((category) => (
-            <option key={category} value={category}>{category}</option>
+          {SERVICE_CATEGORIES.map((category) => (
+            <option key={category} value={category}>{CATEGORY_LABELS[category]}</option>
           ))}
         </select>
         {fieldErrors.category && <span className="onboarding__field-error">{fieldErrors.category}</span>}
@@ -119,8 +146,14 @@ export function ProviderProfileForm({ isSubmitting, error, onSubmit, onSkip }: P
 
       <label className="onboarding__field">
         Phone number
-        <input required name="phone" type="tel" placeholder="+251 9 12 345 678" />
-        {fieldErrors.phone && <span className="onboarding__field-error">{fieldErrors.phone}</span>}
+        <input
+          required
+          name="contactPhone"
+          type="tel"
+          placeholder="+251 9 12 345 678"
+          defaultValue={defaults?.phone ?? ""}
+        />
+        {fieldErrors.contactPhone && <span className="onboarding__field-error">{fieldErrors.contactPhone}</span>}
       </label>
 
       <label className="onboarding__field">

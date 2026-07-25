@@ -2,13 +2,14 @@ import type {
   ApiResponse,
   AuthUser,
   KycStatusResponse,
+  ProviderProfileInput,
+  ProviderProfileResponse,
   RequestOtpResponse,
   UpdateProfileBody,
   VerifyOtpResponse,
 } from "@zeyla/shared";
-import { authHeaders, setAuthToken } from "./authToken";
+import { authHeaders } from "./authToken";
 import { fileToBase64 } from "./fileToBase64";
-import type { ProviderProfilePayload, ProviderProfileResponse } from "./types";
 
 const apiUrl = (path: string) => `${import.meta.env.VITE_API_URL ?? ""}${path}`;
 
@@ -63,10 +64,13 @@ const mockUser: AuthUser = {
   phone: "+251900000000",
   name: null,
   email: null,
+  avatarUrl: null,
+  authProvider: "phone",
   role: "user",
   kycStatus: "pending",
   kycSubmittedAt: null,
   kycReviewedAt: null,
+  onboardingCompleted: false,
   createdAt: new Date().toISOString(),
 };
 
@@ -101,9 +105,12 @@ export function requestOtp(phone: string): Promise<RequestOtpResponse> {
   );
 }
 
-/** Persists the bearer token on success. */
-export async function verifyOtp(phone: string, code: string): Promise<VerifyOtpResponse> {
-  const result = await callApiOrMock<VerifyOtpResponse>(
+/**
+ * Returns the token; it is the caller's job to adopt it into the session
+ * (`useAuth().adoptApiSession`) so the whole app sees the sign-in at once.
+ */
+export function verifyOtp(phone: string, code: string): Promise<VerifyOtpResponse> {
+  return callApiOrMock<VerifyOtpResponse>(
     "/api/auth/otp/verify",
     {
       method: "POST",
@@ -122,8 +129,6 @@ export async function verifyOtp(phone: string, code: string): Promise<VerifyOtpR
     },
     "verifyOtp",
   );
-  setAuthToken(result.token);
-  return result;
 }
 
 export function getMe(): Promise<AuthUser> {
@@ -186,12 +191,14 @@ export function getKycStatus(): Promise<KycStatusResponse> {
 
 // --- Provider profile --------------------------------------------------------
 
-// TODO(mohammed): no provider-profile HTTP route exists yet in the marketplace
-// module (only the `providers` table). Role itself is real — see updateProfile
-// above — but category/sub-city/bio/experience/price-range have nowhere real
-// to land yet. Mocked here matching the shape we'd expect from
-// POST /api/marketplace/providers until that route exists.
-export function createProviderProfile(payload: ProviderProfilePayload): Promise<ProviderProfileResponse> {
+/**
+ * Creates the provider profile and promotes the account to the `provider` role
+ * in one call. Idempotent server-side, so a retry after a failed submit updates
+ * the profile rather than creating a second one.
+ */
+export function createProviderProfile(
+  payload: ProviderProfileInput,
+): Promise<ProviderProfileResponse> {
   return callApiOrMock<ProviderProfileResponse>(
     "/api/marketplace/providers",
     {
@@ -201,7 +208,26 @@ export function createProviderProfile(payload: ProviderProfilePayload): Promise<
     },
     async () => {
       await wait(400);
-      return { providerId: `mock-provider-${Date.now()}` };
+      return {
+        created: true,
+        provider: {
+          providerId: mockUser.id,
+          category: payload.category,
+          businessName: payload.businessName,
+          subCity: payload.subCity,
+          bio: payload.bio,
+          experienceYears: payload.experienceYears,
+          priceMin: payload.priceMin,
+          priceMax: payload.priceMax,
+          contactPhone: payload.contactPhone ?? null,
+          serviceRadiusMeters: payload.serviceRadiusMeters ?? 10_000,
+          trustScore: 60,
+          isOnline: false,
+          lat: null,
+          lng: null,
+          createdFromSubCityCentroid: true,
+        },
+      };
     },
     "createProviderProfile",
   );

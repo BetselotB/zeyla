@@ -5,7 +5,12 @@ import { asyncHandler, fail, ok } from "../../lib/respond.js";
 import { KycUploadError, resolveKycFile } from "./kyc.js";
 import { authedUser, requireAdmin, requireAuth } from "./middleware.js";
 import { InvalidPhoneError, normalisePhone } from "./phone.js";
-import { setKycDecision, toAuthUser, updateProfile } from "./repo.js";
+import {
+  completeOnboarding,
+  setKycDecision,
+  toAuthUser,
+  updateProfile,
+} from "./repo.js";
 import { revokeSession } from "./sessions.js";
 import {
   AuthError,
@@ -13,6 +18,7 @@ import {
   kycStatus,
   requestOtp,
   submitKyc,
+  syncSupabaseSession,
   verifyOtpAndLogin,
 } from "./service.js";
 
@@ -81,6 +87,48 @@ authRouter.post(
     } catch (err) {
       sendError(res, err);
     }
+  }),
+);
+
+/**
+ * Supabase email/password and Google sign-in.
+ *
+ * Cannot use `requireAuth`: on a first Google sign-in there is no Zeyla row to
+ * attach yet, which is exactly what this creates. The bearer is the Supabase
+ * access token and the client keeps using it afterwards — Supabase refreshes
+ * it, we only verify it.
+ */
+authRouter.post(
+  "/session",
+  asyncHandler(async (req, res) => {
+    const [scheme, token] = (req.header("authorization") ?? "").split(" ");
+    if (!token || scheme?.toLowerCase() !== "bearer") {
+      res.status(401).json(fail("missing_bearer_token"));
+      return;
+    }
+
+    try {
+      res.json(ok(await syncSupabaseSession(token.trim())));
+    } catch (err) {
+      sendError(res, err);
+    }
+  }),
+);
+
+/**
+ * Signup finished. Until this is called the web app keeps redirecting to
+ * /onboarding, so it is the last step of the flow rather than a formality.
+ */
+authRouter.post(
+  "/onboarding/complete",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const updated = await completeOnboarding(authedUser(req).id);
+    if (!updated) {
+      res.status(404).json(fail("user_not_found"));
+      return;
+    }
+    res.json(ok({ user: toAuthUser(updated) }));
   }),
 );
 

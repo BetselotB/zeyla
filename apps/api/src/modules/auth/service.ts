@@ -2,6 +2,7 @@ import type {
   AuthStatusResponse,
   KycStatusResponse,
   RequestOtpResponse,
+  SyncSessionResponse,
   VerifyOtpResponse,
 } from "@zeyla/shared";
 import { env } from "../../config/env.js";
@@ -10,6 +11,7 @@ import { issueOtp, verifyOtp } from "./otp.js";
 import {
   saveKycUpload,
   toAuthUser,
+  upsertUserByAuthIdentity,
   upsertUserByPhone,
   type UserRow,
 } from "./repo.js";
@@ -19,6 +21,7 @@ import {
   sendSupabaseOtp,
   usingSupabaseOtp,
   verifySupabaseOtp,
+  verifySupabaseToken,
 } from "./supabase.js";
 
 export class AuthError extends Error {
@@ -37,7 +40,32 @@ export function authStatus(): AuthStatusResponse {
     supabaseConfigured: isSupabaseConfigured(),
     demoMode: env.DEMO_MODE,
     otpCodesReturnedInResponse: !supabase,
+    // Independent of AUTH_OTP_PROVIDER: email/password and Google are verified
+    // by Supabase whether or not phone OTP is delegated to it.
+    supabaseAuthEnabled: isSupabaseConfigured(),
   };
+}
+
+/**
+ * Turns a Supabase access token into a Zeyla account.
+ *
+ * The browser signs in with Supabase directly (email/password or the Google
+ * redirect), so the first this API hears of a new user is the token they
+ * present. There is no password or OAuth secret on this side — only
+ * verification.
+ */
+export async function syncSupabaseSession(
+  token: string,
+): Promise<SyncSessionResponse> {
+  if (!isSupabaseConfigured()) {
+    throw new AuthError("supabase_not_configured", 503);
+  }
+
+  const identity = await verifySupabaseToken(token);
+  if (!identity) throw new AuthError("invalid_or_expired_token", 401);
+
+  const { user, created } = await upsertUserByAuthIdentity(identity);
+  return { isNewUser: created, user: toAuthUser(user) };
 }
 
 export async function requestOtp(phone: string): Promise<RequestOtpResponse> {

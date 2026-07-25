@@ -56,7 +56,8 @@ export interface InitializeInput {
   email: string;
   firstName: string;
   lastName: string;
-  phone: string;
+  /** Absent for accounts created with email/password or Google. Chapa allows it. */
+  phone?: string;
   callbackUrl: string;
   returnUrl: string;
   title?: string;

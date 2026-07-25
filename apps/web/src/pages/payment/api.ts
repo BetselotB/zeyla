@@ -70,10 +70,13 @@ const mockUser: AuthUser = {
   phone: "+251900000000",
   name: null,
   email: null,
+  avatarUrl: null,
+  authProvider: "phone",
   role: "user",
   kycStatus: "verified",
   kycSubmittedAt: new Date().toISOString(),
   kycReviewedAt: new Date().toISOString(),
+  onboardingCompleted: true,
   createdAt: new Date().toISOString(),
 };
 

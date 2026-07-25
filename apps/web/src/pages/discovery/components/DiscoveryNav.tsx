@@ -7,10 +7,10 @@ export function DiscoveryNav() {
     <GlassNavShell>
       <ZeylaLogo />
       <ul className="z-nav-links">
-        <li><a href="#product">Product</a></li>
-        <li><a href="#providers">Providers</a></li>
-        <li><a href="#how">Use Cases</a></li>
-        <li><a href="#pricing">Pricing</a></li>
+        <li><Link to="/product">Product</Link></li>
+        <li><Link to="/providers">Providers</Link></li>
+        <li><Link to="/use-cases">Use Cases</Link></li>
+        <li><Link to="/pricing">Pricing</Link></li>
       </ul>
       <div className="z-nav-cta">
         <Link to="/discovery" className="z-btn z-btn-primary">

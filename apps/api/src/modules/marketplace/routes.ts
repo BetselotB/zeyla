@@ -5,6 +5,10 @@ import { requireActor } from "./lib/actor.js";
 import { handle } from "./lib/handle.js";
 import { matchProviders, pairRequestWithProvider } from "./matching.service.js";
 import {
+  getOwnProviderProfile,
+  upsertProviderProfile,
+} from "./profile.service.js";
+import {
   fanoutPings,
   listProviderPings,
   listRequestPings,
@@ -23,6 +27,7 @@ import {
   pingResponseSchema,
   providerDetailQuerySchema,
   providerPingsQuerySchema,
+  providerProfileSchema,
   providerSearchSchema,
   transcribeSchema,
   uuidSchema,
@@ -52,6 +57,32 @@ marketplaceRouter.get(
   handle(async (req) => {
     const params = providerSearchSchema.parse(req.query);
     return searchProviders(params);
+  }),
+);
+
+/**
+ * Create or update the caller's own provider profile — the last step of
+ * onboarding. Registered before `/providers/:id` so "me" is not parsed as a id.
+ */
+marketplaceRouter.post(
+  "/providers",
+  requireAuth,
+  handle(
+    async (req) => {
+      const actor = requireActor(req);
+      const input = providerProfileSchema.parse(req.body);
+      return upsertProviderProfile(actor, input);
+    },
+    { status: 201 },
+  ),
+);
+
+marketplaceRouter.get(
+  "/providers/me",
+  requireAuth,
+  handle(async (req) => {
+    const provider = await getOwnProviderProfile(requireActor(req));
+    return { provider };
   }),
 );
 

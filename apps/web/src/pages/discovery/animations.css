@@ -1,23 +1,5 @@
 /* Shared motion — discovery, tracking, reviews */
 
-@keyframes z-bg-gradient-shift {
-  0% {
-    background-position: 0% 50%;
-  }
-  25% {
-    background-position: 50% 100%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  75% {
-    background-position: 50% 0%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
-}
-
 @keyframes z-bg-orbit-a {
   0% {
     transform: translate(0, 0) scale(1);
@@ -92,12 +74,16 @@
   background-color: #f4efe8;
 }
 
+/* The base gradient is deliberately static. Animating background-position
+   here repainted the entire viewport every frame, and the orbiting blobs
+   below already supply the motion on the compositor for free. */
 .z-bg-mesh {
   position: fixed;
   inset: 0;
   z-index: 0;
   pointer-events: none;
   overflow: hidden;
+  contain: strict;
   background: linear-gradient(
     135deg,
     #eef8f6 0%,
@@ -107,14 +93,14 @@
     #f5ecd8 80%,
     #d8f2ee 100%
   );
-  background-size: 400% 400%;
-  animation: z-bg-gradient-shift 28s ease-in-out infinite;
 }
 
 .z-bg-blob {
   position: absolute;
   border-radius: 50%;
-  filter: blur(80px);
+  /* The source is already a soft radial gradient, so the blur only has to
+     kill banding — 60px looks the same as 80px and rasterises quicker. */
+  filter: blur(60px);
   will-change: transform;
   opacity: 0.85;
 }
@@ -198,11 +184,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .z-bg-mesh {
-    animation: none;
-    background-size: 100% 100%;
-  }
-
   .z-bg-blob {
     animation: none !important;
   }

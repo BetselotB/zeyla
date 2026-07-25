@@ -1,28 +1,33 @@
 import type { ApiResponse, AuthStatusResponse, VerifyOtpResponse } from "@zeyla/shared";
+import {
+  clearStoredToken,
+  getAccessTokenSync,
+  storeToken as persistToken,
+} from "../../../auth/session";
 
 /**
  * Bearer token for the discovery pages.
  *
- * Every write endpoint sits behind `requireAuth`, so discovery needs a token
- * even though it is the app's entry point and has no login screen of its own.
- * A token stored by the onboarding flow is always preferred; `ensureSession`
- * only self-provisions one when the API says it is running the mock OTP
- * provider, which is a dev/demo-only mode. Against a real SMS provider that
- * branch is unreachable and the caller gets `login_required` instead.
+ * Every write endpoint sits behind `requireAuth`. Discovery no longer has to
+ * provision its own session — the onboarding gate guarantees a signed-in user
+ * before these pages ever render — but `ensureSession` stays as a dev
+ * convenience for opening /discovery directly with the mock OTP provider on.
+ * Against a real provider that branch is unreachable and the caller gets
+ * `login_required` instead.
+ *
+ * Storage itself lives in src/auth/session.ts, shared with onboarding and
+ * payment, so a Supabase email/Google session is visible here too.
  */
-const TOKEN_KEY = "zeyla_token";
-
-/** Shared with onboarding so both flows read and write the same token. */
 export function readToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY);
+  return getAccessTokenSync();
 }
 
 export function storeToken(token: string) {
-  localStorage.setItem(TOKEN_KEY, token);
+  persistToken(token);
 }
 
 export function clearToken() {
-  localStorage.removeItem(TOKEN_KEY);
+  clearStoredToken();
 }
 
 export const API_BASE = `${import.meta.env.VITE_API_URL ?? "http://localhost:4000"}/api`;

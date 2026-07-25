@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { SERVICE_CATEGORIES, URGENCY_LEVELS } from "@zeyla/shared";
+import { SERVICE_CATEGORIES, SUB_CITIES, URGENCY_LEVELS } from "@zeyla/shared";
 
 export const latSchema = z.coerce.number().min(-90).max(90);
 export const lngSchema = z.coerce.number().min(-180).max(180);
@@ -36,6 +36,31 @@ export const providerDetailQuerySchema = z.object({
   lat: latSchema.optional(),
   lng: lngSchema.optional(),
 });
+
+/**
+ * Provider profile from the onboarding form. `category` is the canonical slug,
+ * not the label shown in the dropdown — discovery filters on an exact match, so
+ * a free-text category here would make the provider unsearchable.
+ */
+export const providerProfileSchema = z
+  .object({
+    category: z.enum(SERVICE_CATEGORIES),
+    businessName: z.string().trim().min(2).max(80),
+    subCity: z.enum(SUB_CITIES),
+    bio: z.string().trim().min(10).max(500),
+    experienceYears: z.coerce.number().int().min(0).max(60),
+    priceMin: z.coerce.number().min(0).max(1_000_000),
+    priceMax: z.coerce.number().min(0).max(1_000_000),
+    contactPhone: z.string().trim().min(7).max(20).optional(),
+    fullName: z.string().trim().min(2).max(80).optional(),
+    serviceRadiusMeters: z.coerce.number().int().min(500).max(50_000).optional(),
+    lat: latSchema.optional(),
+    lng: lngSchema.optional(),
+  })
+  .refine((v) => v.priceMax >= v.priceMin, {
+    message: "priceMax must be greater than or equal to priceMin",
+    path: ["priceMax"],
+  });
 
 export const createRequestSchema = z.object({
   category: z.string().trim().min(2).max(40),

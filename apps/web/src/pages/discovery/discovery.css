@@ -751,136 +751,150 @@
   margin-inline: auto;
 }
 
-/* ── Voice listening overlay (WebGL blob) ── */
+/* ── Voice capture overlay ──
+   No panel: the page is blurred away behind a scrim and all that is left is
+   the blob, the record dot and the elapsed time. */
 .z-voice-overlay {
   position: fixed;
   inset: 0;
   z-index: 210;
-  background: rgba(17, 17, 17, 0.22);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
   display: grid;
   place-items: center;
   padding: 1.5rem;
-  animation: z-dropdown-in 0.25s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-.z-voice-panel {
+/* The blur layer is a sibling of the blob rather than its ancestor, so the
+   canvas repainting at 60fps never invalidates the cached backdrop. */
+.z-voice-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(246, 241, 234, 0.46);
+  backdrop-filter: blur(36px) saturate(1.35);
+  -webkit-backdrop-filter: blur(36px) saturate(1.35);
+  animation: z-voice-scrim-in 0.32s ease both;
+}
+
+@keyframes z-voice-scrim-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Anywhere outside the blob stops the recording. */
+.z-voice-stop-surface {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.z-voice-stop-surface:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px rgba(17, 17, 17, 0.18);
+}
+
+.z-voice-stage {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
-  width: 100%;
-  max-width: 380px;
-  padding: 2rem 2rem 1.75rem;
-  text-align: center;
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(24px) saturate(1.4);
-  -webkit-backdrop-filter: blur(24px) saturate(1.4);
-  border: 1px solid rgba(255, 255, 255, 0.8);
-  border-radius: 28px;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.14);
+  gap: 1.25rem;
+  pointer-events: none;
+  animation: z-voice-stage-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes z-voice-stage-in {
+  from { opacity: 0; transform: scale(0.94); }
+  to { opacity: 1; transform: scale(1); }
 }
 
 .z-voice-blob {
   position: relative;
-  width: 240px;
-  height: 240px;
+  /* Capped below 100vmin so the timer underneath always has room. */
+  width: min(80vmin, 660px);
+  height: min(80vmin, 660px);
   display: grid;
   place-items: center;
 }
 
-.z-voice-blob canvas {
+.z-voice-blob-canvas {
   display: block;
-  position: relative;
-  z-index: 1;
+  width: 100%;
+  height: 100%;
 }
 
-/* Visible only when WebGL / motion is unavailable — the canvas covers it. */
+/* Visible only until WebGL takes over, or permanently when it is unavailable. */
 .z-voice-blob-fallback {
   position: absolute;
-  width: 96px;
-  height: 96px;
+  width: 32%;
+  aspect-ratio: 1;
   border-radius: 50%;
-  background: #111;
+  background: #101215;
   animation: z-voice-pulse 1.6s ease-in-out infinite;
+}
+
+.z-voice-blob.is-live .z-voice-blob-fallback {
+  display: none;
 }
 
 @keyframes z-voice-pulse {
   0%, 100% {
     transform: scale(0.92);
-    box-shadow: 0 0 0 0 rgba(17, 17, 17, 0.28);
+    box-shadow: 0 0 0 0 rgba(17, 17, 17, 0.24);
   }
   50% {
     transform: scale(1);
-    box-shadow: 0 0 0 22px rgba(17, 17, 17, 0);
+    box-shadow: 0 0 0 40px rgba(17, 17, 17, 0);
   }
-}
-
-.z-voice-title {
-  margin: 0;
-  font-size: 1.0625rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-}
-
-.z-voice-hint {
-  margin: 0 0 0.35rem;
-  font-size: 0.8125rem;
-  line-height: 1.5;
-  color: rgba(17, 17, 17, 0.5);
 }
 
 .z-voice-timer {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  margin: 0 0 0.75rem;
-  font-size: 0.75rem;
+  gap: 0.6rem;
+  margin: 0;
+  font-size: 0.9375rem;
   font-weight: 600;
-  letter-spacing: 0.08em;
-  color: rgba(17, 17, 17, 0.45);
+  letter-spacing: 0.16em;
+  color: rgba(17, 17, 17, 0.55);
   font-variant-numeric: tabular-nums;
 }
 
 .z-voice-rec-dot {
-  width: 7px;
-  height: 7px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   background: #dc2626;
-  animation: z-voice-rec 1.4s ease-in-out infinite;
+  /* Transform and opacity only, so the pulse stays on the compositor. */
+  will-change: transform, opacity;
+  animation: z-voice-rec 1.5s ease-in-out infinite;
 }
 
 @keyframes z-voice-rec {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.25; }
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.3; transform: scale(0.82); }
 }
 
-.z-voice-dots {
-  display: inline-flex;
-  gap: 0.3rem;
-  margin-top: 0.4rem;
+.z-voice-phase {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: rgba(17, 17, 17, 0.45);
 }
 
-.z-voice-dots i {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: rgba(17, 17, 17, 0.3);
-  animation: z-voice-dot 1.1s ease-in-out infinite;
+/* While the overlay is up nothing behind it may animate: a single repaint
+   back there forces the whole blurred scrim to be recomputed. */
+body.z-voice-open .discovery-root {
+  overflow: hidden;
 }
 
-.z-voice-dots i:nth-child(2) {
-  animation-delay: 0.15s;
-}
-
-.z-voice-dots i:nth-child(3) {
-  animation-delay: 0.3s;
-}
-
-@keyframes z-voice-dot {
-  0%, 100% { opacity: 0.25; transform: translateY(0); }
-  50% { opacity: 0.8; transform: translateY(-3px); }
+body.z-voice-open .z-bg-blob,
+body.z-voice-open .z-mic-btn.recording {
+  animation-play-state: paused;
 }
 
 /* ── Language overlay ── */
@@ -939,10 +953,10 @@
     -webkit-backdrop-filter: blur(10px) saturate(1.2);
   }
 
-  .z-voice-overlay,
+  .z-voice-scrim,
+  .z-voice-stage,
   .z-voice-blob-fallback,
-  .z-voice-rec-dot,
-  .z-voice-dots i {
+  .z-voice-rec-dot {
     animation: none !important;
   }
 }
@@ -999,12 +1013,13 @@
     height: 26px;
   }
 
-  .z-voice-panel {
-    padding: 1.5rem 1.25rem 1.35rem;
+  .z-voice-blob {
+    width: min(90vmin, 520px);
+    height: min(90vmin, 520px);
   }
 
-  .z-voice-blob {
-    width: 180px;
-    height: 180px;
+  .z-voice-scrim {
+    backdrop-filter: blur(26px) saturate(1.3);
+    -webkit-backdrop-filter: blur(26px) saturate(1.3);
   }
 }

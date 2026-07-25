@@ -1,4 +1,5 @@
 import type { KycStatus } from "@zeyla/shared";
+import { VerifiedBadge } from "../../../auth/VerifiedBadge";
 
 type KycStatusScreenProps = {
   status: KycStatus;
@@ -25,6 +26,7 @@ export function KycStatusScreen({ status, onResubmit, onContinue }: KycStatusScr
         <span className={`onboarding__status-icon ${isRejected ? "onboarding__status-icon--warn" : ""}`}>
           {isRejected ? "!" : isVerified ? "✓" : "…"}
         </span>
+        <VerifiedBadge status={status} />
       </div>
 
       {isRejected ? (

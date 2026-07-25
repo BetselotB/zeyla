@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { AuthProvider } from "@zeyla/shared";
 import { env } from "../../config/env.js";
 
 /**
@@ -32,6 +33,44 @@ function getClient(): SupabaseClient | null {
 export interface SupabaseIdentity {
   uid: string;
   phone: string | null;
+  email: string | null;
+  name: string | null;
+  avatarUrl: string | null;
+  /** Which Supabase provider signed this user in — "google", "email", "phone". */
+  provider: AuthProvider | null;
+}
+
+/**
+ * Google returns the display name and picture under whichever of these keys the
+ * OIDC payload happened to use. Reading all of them means a Google account
+ * arrives with an avatar instead of a blank profile.
+ */
+function readMetadata(
+  metadata: Record<string, unknown> | undefined,
+  keys: string[],
+): string | null {
+  for (const key of keys) {
+    const value = metadata?.[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return null;
+}
+
+/**
+ * Supabase reports an unset phone or email as "" rather than omitting it.
+ * Storing that would put an empty string in a UNIQUE column, so the second
+ * email-only signup would collide with the first.
+ */
+function blankToNull(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
+function toAuthProvider(value: unknown): AuthProvider | null {
+  if (value === "google") return "google";
+  if (value === "email") return "email";
+  if (value === "phone") return "phone";
+  return null;
 }
 
 /** Returns null for any token Supabase does not vouch for. */
@@ -44,7 +83,18 @@ export async function verifySupabaseToken(
   try {
     const { data, error } = await supabase.auth.getUser(token);
     if (error || !data.user) return null;
-    return { uid: data.user.id, phone: data.user.phone ?? null };
+
+    const metadata = data.user.user_metadata as
+      | Record<string, unknown>
+      | undefined;
+    return {
+      uid: data.user.id,
+      phone: blankToNull(data.user.phone),
+      email: blankToNull(data.user.email),
+      name: readMetadata(metadata, ["full_name", "name", "user_name"]),
+      avatarUrl: readMetadata(metadata, ["avatar_url", "picture"]),
+      provider: toAuthProvider(data.user.app_metadata?.provider),
+    };
   } catch {
     return null;
   }

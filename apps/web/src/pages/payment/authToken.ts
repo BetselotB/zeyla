@@ -1,24 +1,13 @@
 /**
- * Bearer token persistence for the logged-in session.
+ * Thin wrapper over the app-wide session module in src/auth.
  *
- * NOTE: this is duplicated in apps/web/src/pages/onboarding/authToken.ts
- * (where the token is first set, after OTP verify) because there's no shared
- * auth/session module either page folder can import from without a
- * components/ or packages/shared PR. Worth proposing a real `src/lib/auth.ts`
- * once someone owns that decision — until then this is the pragmatic option
- * that keeps both folders independently editable.
+ * Payment reads whichever session is live — a Supabase token from email/Google
+ * sign-in, or the opaque token from this API's phone OTP flow — without caring
+ * which one it got.
  */
-const STORAGE_KEY = "zeyla:authToken";
-
-export function getAuthToken(): string | null {
-  try {
-    return window.localStorage.getItem(STORAGE_KEY);
-  } catch {
-    return null;
-  }
-}
-
-export function authHeaders(): HeadersInit | undefined {
-  const token = getAuthToken();
-  return token ? { Authorization: `Bearer ${token}` } : undefined;
-}
+export {
+  authHeadersSync as authHeaders,
+  clearStoredToken as clearAuthToken,
+  getAccessTokenSync as getAuthToken,
+  storeToken as setAuthToken,
+} from "../../auth/session";

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { SERVICE_CATEGORIES, URGENCY_LEVELS } from "@zeyla/shared";
 import { useLanguage, languageLabels } from "../lib/language.js";
 import { classify, createRequest, transcribe } from "../lib/api.js";
@@ -10,6 +10,7 @@ import type {
 } from "../lib/types.js";
 import { ClassificationCard } from "./ClassificationCard.js";
 import { GlassSelect } from "./GlassSelect.js";
+import { VoiceListening, prefetchVoiceBlob } from "./VoiceListening.js";
 
 const PLACEHOLDER =
   "Describe your problem — speak or type in Amharic, Afaan Oromo, or English…";
@@ -71,8 +72,11 @@ const URGENCY_OPTIONS = [
   })),
 ];
 
-/** Long enough for a sentence, short enough that nobody wonders if it hung. */
-const MAX_RECORDING_MS = 10_000;
+/**
+ * Safety net only — the listening overlay tells people to take as long as they
+ * need, and recording normally ends when they tap stop.
+ */
+const MAX_RECORDING_MS = 300_000;
 
 function readableError(err: unknown): string {
   const code = err instanceof Error ? err.message : String(err);
@@ -100,19 +104,45 @@ export function ProblemIntake({ onResults }: ProblemIntakeProps) {
   const [urgency, setUrgency] = useState("auto");
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
+  /** Classifying straight off a recording, with the voice overlay still up. */
+  const [understanding, setUnderstanding] = useState(false);
   const [loading, setLoading] = useState(false);
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [parse, setParse] = useState<VoiceParseResult | null>(null);
   const stopRef = useRef<(() => void) | null>(null);
+  /** Feeds the listening overlay: the blob reacts to this stream's amplitude. */
+  const [micStream, setMicStream] = useState<MediaStream | null>(null);
+
+  // Stable so the overlay's Escape listener is not torn down every render.
+  const stopRecording = useCallback(() => stopRef.current?.(), []);
 
   const languageOptions = (Object.keys(languageLabels) as LanguageCode[]).map(
     (code) => ({ value: code, label: languageLabels[code] }),
   );
 
   /**
+   * Runs the transcript past the classifier and moves to the summary. Any
+   * category or urgency the customer picked by hand overrules the model.
+   */
+  async function classifyInto(transcript: string) {
+    const result = await classify(transcript, lang);
+    setParse({
+      ...result,
+      category: category === "any" ? result.category : (category as typeof result.category),
+      urgency: urgency === "auto" ? result.urgency : (urgency as typeof result.urgency),
+    });
+  }
+
+  /**
    * Records until the customer taps stop, or MAX_RECORDING_MS, then sends the
    * clip to Addis AI. A fixed-length recording cut people off mid-sentence.
+   *
+   * Speaking goes straight through to the summary rather than dropping the
+   * transcript into the textarea: someone who just described a burst pipe out
+   * loud does not want to be handed their own words back to proofread. The
+   * summary shows what was heard and has an edit button for the cases where it
+   * got it wrong.
    */
   async function handleRecord() {
     if (recording) {
@@ -130,6 +160,7 @@ export function ProblemIntake({ onResults }: ProblemIntakeProps) {
     }
 
     setRecording(true);
+    setMicStream(stream);
     try {
       const recorder = new MediaRecorder(stream);
       const chunks: Blob[] = [];
@@ -152,6 +183,11 @@ export function ProblemIntake({ onResults }: ProblemIntakeProps) {
       clearTimeout(timeout);
       setRecording(false);
 
+      // Release the mic the moment the clip is captured. Leaving the browser's
+      // recording indicator lit through transcription reads as still listening.
+      stream.getTracks().forEach((t) => t.stop());
+      setMicStream(null);
+
       const blob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
       if (blob.size === 0) {
         setError("The recording was empty. Try again.");
@@ -161,16 +197,25 @@ export function ProblemIntake({ onResults }: ProblemIntakeProps) {
       setTranscribing(true);
       const transcription = await transcribe(blob, lang);
       // Append rather than replace, so a second take adds to the first.
-      setText((prev) =>
-        prev.trim() ? `${prev.trim()} ${transcription.transcript}` : transcription.transcript,
-      );
+      const nextText = text.trim()
+        ? `${text.trim()} ${transcription.transcript}`
+        : transcription.transcript;
+      setText(nextText);
+
+      setTranscribing(false);
+      setUnderstanding(true);
+      await classifyInto(nextText);
     } catch (err) {
+      // Falls back to the textarea holding the transcript, so a failed classify
+      // costs the customer a tap rather than the whole recording.
       setError(readableError(err));
     } finally {
       stream.getTracks().forEach((t) => t.stop());
       stopRef.current = null;
+      setMicStream(null);
       setRecording(false);
       setTranscribing(false);
+      setUnderstanding(false);
     }
   }
 
@@ -182,12 +227,7 @@ export function ProblemIntake({ onResults }: ProblemIntakeProps) {
     setLoading(true);
     setError(null);
     try {
-      const result = await classify(text.trim(), lang);
-      setParse({
-        ...result,
-        category: category === "any" ? result.category : (category as typeof result.category),
-        urgency: urgency === "auto" ? result.urgency : (urgency as typeof result.urgency),
-      });
+      await classifyInto(text.trim());
     } catch (err) {
       setError(readableError(err));
     } finally {
@@ -237,7 +277,7 @@ export function ProblemIntake({ onResults }: ProblemIntakeProps) {
     );
   }
 
-  const busy = recording || transcribing;
+  const busy = recording || transcribing || understanding;
 
   return (
     <>
@@ -249,7 +289,7 @@ export function ProblemIntake({ onResults }: ProblemIntakeProps) {
             value={text}
             onChange={(e) => setText(e.target.value)}
             rows={5}
-            disabled={transcribing}
+            disabled={busy}
           />
           <div className="z-card-controls">
             <div className="z-selectors">
@@ -278,7 +318,9 @@ export function ProblemIntake({ onResults }: ProblemIntakeProps) {
                 type="button"
                 className={`z-selector z-mic-btn${recording ? " recording" : ""}`}
                 onClick={handleRecord}
-                disabled={transcribing}
+                onPointerEnter={prefetchVoiceBlob}
+                onFocus={prefetchVoiceBlob}
+                disabled={transcribing || understanding}
               >
                 <MicIcon />
                 {recording ? "Stop" : transcribing ? "Transcribing…" : "Voice"}
@@ -309,6 +351,13 @@ export function ProblemIntake({ onResults }: ProblemIntakeProps) {
         </p>
       </section>
       {error && <div className="z-error">{error}</div>}
+      {busy && (
+        <VoiceListening
+          phase={recording ? "listening" : transcribing ? "transcribing" : "understanding"}
+          stream={micStream}
+          onStop={stopRecording}
+        />
+      )}
     </>
   );
 }

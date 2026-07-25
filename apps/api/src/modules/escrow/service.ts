@@ -165,7 +165,7 @@ export async function fundContract(
     email,
     firstName: user.name?.split(" ")[0] ?? "Zeyla",
     lastName: user.name?.split(" ").slice(1).join(" ") || "Customer",
-    phone: user.phone,
+    phone: user.phone ?? undefined,
     callbackUrl: `${env.PUBLIC_API_URL}/api/escrow/webhooks/chapa`,
     returnUrl,
     title: contract.title ?? undefined,

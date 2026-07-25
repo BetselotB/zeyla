@@ -11,17 +11,29 @@
 
 import type { ContractStatus, EscrowStatus, KycStatus, UserRole } from "./index.js";
 
+/** How the account was first created. Not a list of every linked identity. */
+export type AuthProvider = "phone" | "email" | "google";
+
 /** A user as the API returns it. Never includes tokens or raw KYC paths. */
 export interface AuthUser {
   id: string;
-  phone: string;
+  /** Null for accounts created with email/password or Google. */
+  phone: string | null;
   name: string | null;
-  /** Needed before Chapa checkout — accounts are created phone-only. */
+  /** Needed before Chapa checkout. Null for accounts created phone-only. */
   email: string | null;
+  avatarUrl: string | null;
+  authProvider: AuthProvider | null;
   role: UserRole;
   kycStatus: KycStatus;
   kycSubmittedAt: string | null;
   kycReviewedAt: string | null;
+  /**
+   * False until the signup flow is finished. A token alone does not mean the
+   * account is usable — the web app routes everyone to /onboarding until this
+   * flips.
+   */
+  onboardingCompleted: boolean;
   createdAt: string;
 }
 
@@ -31,6 +43,20 @@ export interface AuthStatusResponse {
   demoMode: boolean;
   /** True when OTP codes come back in the request response instead of by SMS. */
   otpCodesReturnedInResponse: boolean;
+  /** True when this API can verify Supabase email/password and Google tokens. */
+  supabaseAuthEnabled: boolean;
+}
+
+/**
+ * Trades a Supabase access token (email/password or Google) for the matching
+ * Zeyla account, creating it on first sign-in. Send the Supabase token as the
+ * bearer; the client keeps using that same token afterwards, since Supabase
+ * refreshes it and this API only verifies it.
+ */
+export interface SyncSessionResponse {
+  /** True when this call created the Zeyla account rather than finding it. */
+  isNewUser: boolean;
+  user: AuthUser;
 }
 
 export interface RequestOtpBody {
@@ -62,6 +88,11 @@ export interface UpdateProfileBody {
   name?: string;
   email?: string;
   role?: UserRole;
+}
+
+/** Response of POST /api/auth/onboarding/complete. */
+export interface CompleteOnboardingResponse {
+  user: AuthUser;
 }
 
 /**

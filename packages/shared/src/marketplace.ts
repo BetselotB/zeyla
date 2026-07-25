@@ -74,6 +74,71 @@ export interface ProviderDetail extends ProviderSummary {
   recentReviews: ProviderReviewSummary[];
 }
 
+/** Addis Ababa sub-cities, as the onboarding provider form offers them. */
+export const SUB_CITIES = [
+  "Addis Ketema",
+  "Akaky Kaliti",
+  "Arada",
+  "Bole",
+  "Gullele",
+  "Kirkos",
+  "Kolfe Keranio",
+  "Lideta",
+  "Nifas Silk-Lafto",
+  "Yeka",
+] as const;
+
+export type SubCity = (typeof SUB_CITIES)[number];
+
+/**
+ * Body of POST /api/marketplace/providers — the provider profile created at the
+ * end of onboarding. Idempotent: posting again updates the existing profile.
+ */
+export interface ProviderProfileInput {
+  category: ServiceCategory;
+  businessName: string;
+  subCity: SubCity;
+  bio: string;
+  experienceYears: number;
+  priceMin: number;
+  priceMax: number;
+  /** Published work number, which need not be the login phone. */
+  contactPhone?: string;
+  /** Display name written back to the user record when supplied. */
+  fullName?: string;
+  serviceRadiusMeters?: number;
+  /**
+   * Exact base location. Omit and the sub-city centroid is used, so a provider
+   * is always findable by the PostGIS radius search either way.
+   */
+  lat?: number;
+  lng?: number;
+}
+
+export interface ProviderProfile {
+  providerId: string;
+  category: string;
+  businessName: string | null;
+  subCity: string | null;
+  bio: string | null;
+  experienceYears: number;
+  priceMin: number | null;
+  priceMax: number | null;
+  contactPhone: string | null;
+  serviceRadiusMeters: number;
+  trustScore: number;
+  isOnline: boolean;
+  lat: number | null;
+  lng: number | null;
+  createdFromSubCityCentroid: boolean;
+}
+
+export interface ProviderProfileResponse {
+  provider: ProviderProfile;
+  /** False when the post updated a profile that already existed. */
+  created: boolean;
+}
+
 export interface ProviderReviewSummary {
   id: string;
   rating: number;
