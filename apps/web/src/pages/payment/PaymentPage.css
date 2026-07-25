@@ -1,0 +1,164 @@
+.payment {
+  display: grid;
+  gap: 1.5rem;
+  max-width: 42rem;
+}
+
+.payment__intro {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.payment__eyebrow {
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.payment__title {
+  font-family: Fraunces, Georgia, serif;
+  font-size: clamp(2rem, 6vw, 3rem);
+  line-height: 1.05;
+  margin: 0;
+}
+
+.payment__grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+}
+
+.payment__card {
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  box-shadow: 0 1rem 3rem rgba(15, 61, 46, 0.07);
+  padding: clamp(1.25rem, 4vw, 2rem);
+}
+
+.payment__card h2 {
+  color: var(--ink);
+  font-family: Fraunces, Georgia, serif;
+  font-size: 1.3rem;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.payment__form {
+  display: grid;
+  gap: 1rem;
+}
+
+.payment__field {
+  display: grid;
+  font-weight: 600;
+  gap: 0.4rem;
+}
+
+.payment__field input,
+.payment__field textarea {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 0.55rem;
+  color: var(--ink);
+  font: inherit;
+  padding: 0.75rem 0.85rem;
+  width: 100%;
+}
+
+.payment__field textarea {
+  min-height: 6rem;
+  resize: vertical;
+}
+
+.payment__field input:focus,
+.payment__field textarea:focus {
+  border-color: var(--accent);
+  outline: 2px solid rgba(15, 61, 46, 0.15);
+}
+
+.payment__button {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  padding: 0.7rem 1.1rem;
+}
+
+.payment__button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.payment__button--secondary {
+  background: transparent;
+  color: var(--accent);
+}
+
+.payment__notice {
+  background: #edf5ef;
+  border-left: 3px solid var(--accent);
+  margin: 0 0 1rem;
+  padding: 0.75rem;
+}
+
+.payment__notice--error {
+  background: #fff1ec;
+  border-left-color: #b44028;
+}
+
+.payment__status {
+  align-items: flex-start;
+  display: flex;
+  gap: 0.75rem;
+}
+
+.payment__status-icon {
+  align-items: center;
+  background: #d9ecdf;
+  border-radius: 50%;
+  color: var(--accent);
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-weight: 800;
+  height: 2.4rem;
+  justify-content: center;
+  width: 2.4rem;
+}
+
+.payment__status p {
+  color: var(--muted);
+  margin: 0.2rem 0 0;
+}
+
+.payment__timeline {
+  display: grid;
+  gap: 0.75rem;
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+}
+
+.payment__timeline li {
+  border-left: 2px solid var(--line);
+  color: var(--muted);
+  padding: 0 0 0.75rem 1rem;
+}
+
+.payment__timeline li.is-current {
+  border-left-color: var(--accent);
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.payment__hint {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin: 1rem 0 0;
+}
