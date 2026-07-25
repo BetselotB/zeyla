@@ -1,9 +1,5 @@
-<<<<<<< HEAD
-import { useEffect, useRef, useState } from "react";
-=======
 import { useRef, useState } from "react";
 import { SERVICE_CATEGORIES, URGENCY_LEVELS } from "@zeyla/shared";
->>>>>>> de7c95f4db5ce5cdc6f605b6193a72b07174a562
 import { useLanguage, languageLabels } from "../lib/language.js";
 import { classify, createRequest, transcribe } from "../lib/api.js";
 import { getCoords } from "../lib/geo.js";
@@ -14,13 +10,9 @@ import type {
 } from "../lib/types.js";
 import { ClassificationCard } from "./ClassificationCard.js";
 import { GlassSelect } from "./GlassSelect.js";
-import { VoiceListening } from "./VoiceListening.js";
 
 const PLACEHOLDER =
   "Describe your problem — speak or type in Amharic, Afaan Oromo, or English…";
-
-/** Safety net only — recording normally ends when the user taps stop. */
-const MAX_RECORD_SECONDS = 300;
 
 interface ProblemIntakeProps {
   onResults: (request: ServiceRequestDto, parse: VoiceParseResult) => void;
@@ -105,52 +97,23 @@ export function ProblemIntake({ onResults }: ProblemIntakeProps) {
   const { lang, setLang, label } = useLanguage();
   const [text, setText] = useState("");
   const [category, setCategory] = useState("any");
-<<<<<<< HEAD
-  const [serviceStyle, setServiceStyle] = useState("professional");
-  const [urgency, setUrgency] = useState("medium");
-  const [voicePhase, setVoicePhase] = useState<
-    "idle" | "listening" | "transcribing"
-  >("idle");
-  const [micStream, setMicStream] = useState<MediaStream | null>(null);
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
-=======
   const [urgency, setUrgency] = useState("auto");
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
->>>>>>> de7c95f4db5ce5cdc6f605b6193a72b07174a562
   const [loading, setLoading] = useState(false);
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [parse, setParse] = useState<VoiceParseResult | null>(null);
   const stopRef = useRef<(() => void) | null>(null);
 
-  const stopRecordingRef = useRef<(() => void) | null>(null);
-  const recording = voicePhase !== "idle";
-
   const languageOptions = (Object.keys(languageLabels) as LanguageCode[]).map(
     (code) => ({ value: code, label: languageLabels[code] }),
   );
 
-<<<<<<< HEAD
-  useEffect(() => {
-    if (voicePhase !== "listening") return;
-    const id = window.setInterval(() => {
-      setElapsedSeconds((s) => s + 1);
-    }, 1000);
-    return () => window.clearInterval(id);
-  }, [voicePhase]);
-
-  useEffect(() => {
-    if (!micStream) return;
-    return () => micStream.getTracks().forEach((t) => t.stop());
-  }, [micStream]);
-
-=======
   /**
    * Records until the customer taps stop, or MAX_RECORDING_MS, then sends the
    * clip to Addis AI. A fixed-length recording cut people off mid-sentence.
    */
->>>>>>> de7c95f4db5ce5cdc6f605b6193a72b07174a562
   async function handleRecord() {
     if (recording) {
       stopRef.current?.();
@@ -158,57 +121,6 @@ export function ProblemIntake({ onResults }: ProblemIntakeProps) {
     }
 
     setError(null);
-<<<<<<< HEAD
-
-    let stream: MediaStream;
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch {
-      setError("Microphone access failed. Type your problem instead.");
-      return;
-    }
-
-    setMicStream(stream);
-    setElapsedSeconds(0);
-    setVoicePhase("listening");
-
-    try {
-      const recorder = new MediaRecorder(stream);
-      const chunks: Blob[] = [];
-      recorder.ondataavailable = (e) => {
-        if (e.data.size) chunks.push(e.data);
-      };
-      const stopped = new Promise<void>((resolve) => {
-        recorder.onstop = () => resolve();
-      });
-      recorder.start();
-
-      // Waits for the stop button; the timeout is only a runaway guard.
-      await new Promise<void>((resolve) => {
-        const timer = window.setTimeout(resolve, MAX_RECORD_SECONDS * 1000);
-        stopRecordingRef.current = () => {
-          window.clearTimeout(timer);
-          resolve();
-        };
-      });
-
-      if (recorder.state !== "inactive") recorder.stop();
-      await stopped;
-
-      stream.getTracks().forEach((t) => t.stop());
-      setMicStream(null);
-      setVoicePhase("transcribing");
-
-      const blob = new Blob(chunks, { type: "audio/webm" });
-      setText(await transcribe(blob, lang));
-    } catch {
-      setError("Voice capture failed. Type your problem instead.");
-    } finally {
-      stopRecordingRef.current = null;
-      stream.getTracks().forEach((t) => t.stop());
-      setMicStream(null);
-      setVoicePhase("idle");
-=======
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -259,7 +171,6 @@ export function ProblemIntake({ onResults }: ProblemIntakeProps) {
       stopRef.current = null;
       setRecording(false);
       setTranscribing(false);
->>>>>>> de7c95f4db5ce5cdc6f605b6193a72b07174a562
     }
   }
 
@@ -370,15 +281,7 @@ export function ProblemIntake({ onResults }: ProblemIntakeProps) {
                 disabled={transcribing}
               >
                 <MicIcon />
-<<<<<<< HEAD
-                {voicePhase === "listening"
-                  ? "Listening…"
-                  : voicePhase === "transcribing"
-                    ? "Transcribing…"
-                    : "Voice"}
-=======
                 {recording ? "Stop" : transcribing ? "Transcribing…" : "Voice"}
->>>>>>> de7c95f4db5ce5cdc6f605b6193a72b07174a562
               </button>
             </div>
 
@@ -406,14 +309,6 @@ export function ProblemIntake({ onResults }: ProblemIntakeProps) {
         </p>
       </section>
       {error && <div className="z-error">{error}</div>}
-      {recording && (
-        <VoiceListening
-          phase={voicePhase === "listening" ? "listening" : "transcribing"}
-          stream={micStream}
-          elapsedSeconds={elapsedSeconds}
-          onStop={() => stopRecordingRef.current?.()}
-        />
-      )}
     </>
   );
 }
