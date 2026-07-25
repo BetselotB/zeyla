@@ -1,8 +1,11 @@
 import type { Server as HttpServer } from "node:http";
 import { REALTIME_EVENTS } from "@zeyla/shared";
 import { Server, type Socket } from "socket.io";
+import { z } from "zod";
 import { env } from "../../config/env.js";
 import { isUuid } from "../marketplace/lib/actor.js";
+import { ApiError } from "../marketplace/lib/errors.js";
+import { latSchema, lngSchema } from "../marketplace/schemas.js";
 import {
   contractRoom,
   providerRoom,
@@ -10,8 +13,18 @@ import {
   setIo,
   userRoom,
 } from "./io.js";
+import { recordLocation } from "./location.service.js";
 import { getContractParties, isContractMember } from "./membership.js";
 import { setProviderPresence } from "./presence.service.js";
+
+const locationEventSchema = z.object({
+  contractId: z.string().uuid(),
+  lat: latSchema,
+  lng: lngSchema,
+  headingDegrees: z.coerce.number().min(0).max(360).nullish(),
+  speedMps: z.coerce.number().min(0).max(120).nullish(),
+  accuracyMeters: z.coerce.number().min(0).max(10_000).nullish(),
+});
 
 interface SocketIdentity {
   userId: string;
@@ -68,6 +81,10 @@ export function attachRealtime(httpServer: HttpServer) {
       if (contractId) socket.leave(contractRoom(contractId));
     });
 
+    socket.on(REALTIME_EVENTS.PROVIDER_LOCATION, (payload: unknown) => {
+      void pushLocation(socket, identity, payload);
+    });
+
     socket.on(REALTIME_EVENTS.PROVIDER_PRESENCE, (payload: unknown) => {
       if (identity.role !== "provider") return;
       const isOnline = Boolean((payload as { isOnline?: boolean })?.isOnline);
@@ -91,6 +108,35 @@ function readContractId(payload: unknown): string | null {
   if (typeof payload === "string") return isUuid(payload) ? payload : null;
   const id = (payload as { contractId?: unknown })?.contractId;
   return isUuid(id) ? id : null;
+}
+
+/**
+ * A GPS tick arrives every 5–10s per active contract. A bad frame is answered
+ * with realtime:error and dropped — never enough to kill the socket, because
+ * that would end the customer's live map.
+ */
+async function pushLocation(
+  socket: Socket,
+  identity: SocketIdentity,
+  payload: unknown,
+) {
+  const parsed = locationEventSchema.safeParse(payload);
+  if (!parsed.success) {
+    socket.emit(REALTIME_EVENTS.REALTIME_ERROR, {
+      event: REALTIME_EVENTS.PROVIDER_LOCATION,
+      message: "invalid_location",
+    });
+    return;
+  }
+
+  try {
+    await recordLocation(identity.userId, parsed.data);
+  } catch (err) {
+    socket.emit(REALTIME_EVENTS.REALTIME_ERROR, {
+      event: REALTIME_EVENTS.PROVIDER_LOCATION,
+      message: err instanceof ApiError ? err.message : "location_rejected",
+    });
+  }
 }
 
 async function joinContract(

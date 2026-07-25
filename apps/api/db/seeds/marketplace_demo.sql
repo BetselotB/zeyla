@@ -83,6 +83,19 @@ FROM (VALUES
 ) AS p(i, provider_id)
 ON CONFLICT (id) DO NOTHING;
 
+-- One live job, for the tracking map -----------------------------------------
+INSERT INTO service_requests (id, user_id, category, description, urgency, lat, lng, address_label, status)
+VALUES ('44444444-4444-4444-8444-444444444490', '11111111-1111-4111-8111-111111111111',
+        'plumber', 'Bathroom tap will not stop running', 'high',
+        8.9950, 38.7870, 'Bole Medhanialem', 'in_progress')
+ON CONFLICT (id) DO UPDATE SET status = 'in_progress';
+
+INSERT INTO contracts (id, request_id, provider_id, user_id, agreed_amount, status)
+VALUES ('33333333-3333-4333-8333-333333333390', '44444444-4444-4444-8444-444444444490',
+        '22222222-2222-4222-8222-222222222201', '11111111-1111-4111-8111-111111111111',
+        1200.00, 'active')
+ON CONFLICT (id) DO UPDATE SET status = 'active';
+
 -- Reviews --------------------------------------------------------------------
 INSERT INTO reviews (id, contract_id, provider_id, reviewer_user_id, rating, comment)
 SELECT
