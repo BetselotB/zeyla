@@ -1,0 +1,19 @@
+# Zeyla folder ownership — one owner per feature folder so parallel work never collides.
+# Edit outside your folder only via PR, with the owner merging it.
+
+/apps/api/src/modules/auth/           @betselot
+/apps/api/src/modules/escrow/         @betselot
+/apps/api/src/modules/marketplace/    @mohammed
+/apps/api/src/modules/realtime/       @mohammed
+/apps/api/src/modules/notifications/  @mohammed
+/apps/api/src/modules/trust/          @mohammed
+
+/apps/web/src/pages/onboarding/       @maramawit
+/apps/web/src/pages/payment/          @maramawit
+/apps/web/src/pages/discovery/        @daniel
+/apps/web/src/pages/tracking/         @daniel
+/apps/web/src/pages/reviews/          @daniel
+/apps/web/src/components/             @eyoel
+
+# Shared by both sides — PR only.
+/packages/shared/                     @betselot @mohammed

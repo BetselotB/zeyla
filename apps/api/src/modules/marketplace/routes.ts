@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { notImplemented, ok } from "../../lib/respond.js";
 
 /**
  * Marketplace — discovery, service requests, pings.
@@ -8,22 +9,24 @@ export const marketplaceRouter = Router();
 
 marketplaceRouter.get("/providers", (_req, res) => {
   // TODO: SELECT … WHERE ST_DWithin(location, point, radius) ORDER BY trust_score DESC
-  res.json({
-    providers: [],
-    note: "Seed providers + PostGIS radius search in Hrs 2–6",
-  });
+  res.json(
+    ok({
+      providers: [],
+      note: "Seed providers + PostGIS radius search in Hrs 2–6",
+    }),
+  );
 });
 
 marketplaceRouter.post("/requests", (_req, res) => {
-  res.status(501).json({
-    error: "not_implemented",
-    hint: "Create service_requests row + optional Whisperflow/Addis AI parse",
-  });
+  notImplemented(
+    res,
+    "Create service_requests row + optional Whisperflow/Addis AI parse",
+  );
 });
 
 marketplaceRouter.post("/requests/:id/pings", (_req, res) => {
-  res.status(501).json({
-    error: "not_implemented",
-    hint: "Fan out pings to nearby online providers (Redis + Socket.io)",
-  });
+  notImplemented(
+    res,
+    "Fan out pings to nearby online providers (Redis + Socket.io)",
+  );
 });

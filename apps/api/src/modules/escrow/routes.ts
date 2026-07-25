@@ -1,13 +1,14 @@
 import { Router } from "express";
 import type { ContractStatus } from "@zeyla/shared";
 import { env } from "../../config/env.js";
+import { notImplemented, ok } from "../../lib/respond.js";
 
 /**
  * Escrow state machine — core IP of Zeyla.
  * awaiting_escrow → escrowed → active → completed | disputed
  * Ledger: pending → held → released | refunded
  *
- * Telebirr is must-have; in DEMO_MODE simulate webhook confirmation.
+ * Chapa is must-have; in DEMO_MODE simulate webhook confirmation.
  */
 export const escrowRouter = Router();
 
@@ -20,42 +21,48 @@ const transitions: Record<ContractStatus, ContractStatus[]> = {
 };
 
 escrowRouter.get("/state-machine", (_req, res) => {
-  res.json({
-    demoMode: env.DEMO_MODE,
-    transitions,
-    telebirrConfigured: Boolean(env.TELEBIRR_API_KEY),
-  });
+  res.json(
+    ok({
+      demoMode: env.DEMO_MODE,
+      transitions,
+      chapaConfigured: Boolean(env.CHAPA_SECRET_KEY),
+    }),
+  );
 });
 
 escrowRouter.post("/contracts", (_req, res) => {
-  res.status(501).json({
-    error: "not_implemented",
-    hint: "Create contract status=awaiting_escrow, trigger Telebirr STK push",
-  });
+  notImplemented(
+    res,
+    "Create contract status=awaiting_escrow, initialize Chapa transaction",
+  );
 });
 
-escrowRouter.post("/webhooks/telebirr", (_req, res) => {
+escrowRouter.post("/webhooks/chapa", (_req, res) => {
   if (env.DEMO_MODE) {
-    return res.json({
-      ok: true,
-      simulated: true,
-      next: "Write escrow_ledger status=held; move contract → escrowed",
-    });
+    return res.json(
+      ok({
+        simulated: true,
+        next: "Write escrow_ledger status=held; move contract → escrowed",
+      }),
+    );
   }
-  res.status(501).json({ error: "not_implemented" });
+  notImplemented(
+    res,
+    "Verify Chapa signature against CHAPA_WEBHOOK_SECRET, then hold funds",
+  );
 });
 
 escrowRouter.post("/contracts/:id/release", (_req, res) => {
-  res.status(501).json({
-    error: "not_implemented",
-    hint: "On completion: payout provider (minus fee), ledger → released",
-  });
+  notImplemented(
+    res,
+    "On completion: payout provider via Chapa transfer (minus fee), ledger → released",
+  );
 });
 
 /** Demo escape hatch — skip full dispute workflow */
 escrowRouter.post("/admin/contracts/:id/force-release", (_req, res) => {
-  res.status(501).json({
-    error: "not_implemented",
-    hint: "Manual admin release for disputed funds (fake if short on time)",
-  });
+  notImplemented(
+    res,
+    "Manual admin release for disputed funds (fake if short on time)",
+  );
 });

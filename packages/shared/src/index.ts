@@ -1,5 +1,12 @@
 /** Shared domain types — keep API + web in sync */
 
+/** Every Zeyla endpoint answers in this envelope. See .cursorrules. */
+export interface ApiResponse<T = unknown> {
+  success: boolean;
+  data: T | null;
+  error: string | null;
+}
+
 export type UserRole = "user" | "provider";
 export type KycStatus = "pending" | "verified" | "manual_review" | "rejected";
 

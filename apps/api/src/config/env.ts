@@ -12,9 +12,10 @@ const envSchema = z.object({
   SUPABASE_URL: z.string().optional().default(""),
   SUPABASE_ANON_KEY: z.string().optional().default(""),
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional().default(""),
-  TELEBIRR_API_KEY: z.string().optional().default(""),
-  TELEBIRR_API_BASE: z.string().optional().default(""),
-  TELEBIRR_WEBHOOK_SECRET: z.string().optional().default(""),
+  CHAPA_SECRET_KEY: z.string().optional().default(""),
+  CHAPA_PUBLIC_KEY: z.string().optional().default(""),
+  CHAPA_API_BASE: z.string().optional().default("https://api.chapa.co/v1"),
+  CHAPA_WEBHOOK_SECRET: z.string().optional().default(""),
   FAL_KEY: z.string().optional().default(""),
   DEMO_MODE: z
     .string()

@@ -3,12 +3,15 @@ import cors from "cors";
 import express from "express";
 import { createAppRouter } from "./app.js";
 import { env } from "./config/env.js";
+import { errorMiddleware, fail } from "./lib/respond.js";
 import { attachRealtime } from "./modules/realtime/socket.js";
 
 const app = express();
 app.use(cors({ origin: env.CORS_ORIGIN }));
 app.use(express.json({ limit: "2mb" }));
 app.use("/api", createAppRouter());
+app.use((_req, res) => res.status(404).json(fail("not_found")));
+app.use(errorMiddleware);
 
 const server = http.createServer(app);
 attachRealtime(server);

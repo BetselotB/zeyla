@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { computeTrustScore } from "@zeyla/shared";
+import { notImplemented, ok } from "../../lib/respond.js";
 
 /**
  * Trust score + reviews/flags.
@@ -15,22 +16,21 @@ trustRouter.get("/preview", (_req, res) => {
     firecrawlMatched: false,
     flagsReceived: 0,
   });
-  res.json({
-    formula: "base 50 + completions + reviews + KYC + firecrawl − flags",
-    example: breakdown,
-  });
+  res.json(
+    ok({
+      formula: "base 50 + completions + reviews + KYC + firecrawl − flags",
+      example: breakdown,
+    }),
+  );
 });
 
 trustRouter.post("/reviews", (_req, res) => {
-  res.status(501).json({
-    error: "not_implemented",
-    hint: "Only when contract.status=completed; optional Whisperflow voice review",
-  });
+  notImplemented(
+    res,
+    "Only when contract.status=completed; optional Whisperflow voice review",
+  );
 });
 
 trustRouter.post("/flags", (_req, res) => {
-  res.status(501).json({
-    error: "not_implemented",
-    hint: "Provider flags user; threshold reduces ping ability",
-  });
+  notImplemented(res, "Provider flags user; threshold reduces ping ability");
 });

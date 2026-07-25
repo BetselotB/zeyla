@@ -11,7 +11,9 @@ services:
       POSTGRES_DB: zeyla
     volumes:
       - zeyla_pg_data:/var/lib/postgresql/data
-      - ./apps/api/db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      # Postgres runs every .sql in this directory in alphabetical order,
+      # which matches the NNN_ prefix convention in db/migrations.
+      - ./apps/api/db/migrations:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U zeyla -d zeyla"]
       interval: 5s

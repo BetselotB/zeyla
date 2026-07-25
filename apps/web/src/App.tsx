@@ -1,38 +1,17 @@
-import { useEffect, useState } from "react";
-import { computeTrustScore } from "@zeyla/shared";
+import { Route, Routes } from "react-router-dom";
+import { AppNav, StatusPanel } from "./components";
+import { OnboardingPage } from "./pages/onboarding";
+import { PaymentPage } from "./pages/payment";
+import { DiscoveryPage } from "./pages/discovery";
+import { TrackingPage } from "./pages/tracking";
+import { ReviewsPage } from "./pages/reviews";
 import "./App.css";
 
-type Health = {
-  ok: boolean;
-  service: string;
-  demoMode: boolean;
-  checks: { db: boolean; redis: boolean };
-};
-
+/**
+ * Route registry only. One line per page folder — see .cursorrules.
+ * Put feature UI inside your own pages/ folder, not here.
+ */
 export default function App() {
-  const [health, setHealth] = useState<Health | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const base = import.meta.env.VITE_API_URL ?? "";
-    fetch(`${base}/api/health`)
-      .then(async (r) => {
-        const data = (await r.json()) as Health;
-        setHealth(data);
-      })
-      .catch(() => {
-        setError("API offline — run `pnpm dev:api` (and `pnpm db:up` for DB/Redis)");
-      });
-  }, []);
-
-  const sampleTrust = computeTrustScore({
-    completedContracts: 5,
-    avgRating: 4.5,
-    kycVerified: true,
-    firecrawlMatched: false,
-    flagsReceived: 0,
-  });
-
   return (
     <main className="shell">
       <header className="brand">
@@ -44,30 +23,16 @@ export default function App() {
         </p>
       </header>
 
-      <section className="status" aria-live="polite">
-        <h2>Team status</h2>
-        {error && <p className="warn">{error}</p>}
-        {health && (
-          <ul>
-            <li>API: {health.ok ? "up" : "degraded"}</li>
-            <li>Postgres: {health.checks.db ? "up" : "down"}</li>
-            <li>Redis: {health.checks.redis ? "up" : "down"}</li>
-            <li>Demo mode: {health.demoMode ? "on" : "off"}</li>
-          </ul>
-        )}
-        {!health && !error && <p>Checking API…</p>}
-      </section>
+      <AppNav />
 
-      <section className="preview">
-        <h2>Trust score preview</h2>
-        <p>
-          Sample provider score: <strong>{sampleTrust.total}</strong>
-        </p>
-        <p className="muted">
-          Core IP lives in <code>packages/shared</code> +{" "}
-          <code>apps/api/src/modules/escrow</code>
-        </p>
-      </section>
+      <Routes>
+        <Route path="/" element={<StatusPanel />} />
+        <Route path="/onboarding" element={<OnboardingPage />} />
+        <Route path="/payment" element={<PaymentPage />} />
+        <Route path="/discovery" element={<DiscoveryPage />} />
+        <Route path="/tracking" element={<TrackingPage />} />
+        <Route path="/reviews" element={<ReviewsPage />} />
+      </Routes>
     </main>
   );
 }

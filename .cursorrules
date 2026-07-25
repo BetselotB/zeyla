@@ -1,0 +1,60 @@
+# Zeyla — shared team conventions
+
+24-hour hackathon, 5 people working in parallel. These rules exist so two
+people never edit the same lines. Read them before you touch anything.
+
+## API shape
+
+- Every API endpoint returns JSON in the shape:
+  `{ success: boolean, data: object | null, error: string | null }`
+  Use the `ok()` / `fail()` helpers in `apps/api/src/lib/respond.ts`; never
+  hand-roll the envelope.
+- Every backend route handler is async/await, wrapped in try/catch, never
+  throws unhandled. Wrap handlers in `asyncHandler()` from the same file if
+  you would rather not write the try/catch yourself.
+
+## Secrets
+
+- Never write a literal API key, secret, or private key into any committed
+  file. Always read from `process.env` (backend goes through
+  `apps/api/src/config/env.ts`; frontend uses `import.meta.env.VITE_*`).
+- If a new secret is needed, add its name (not its value) to both
+  `apps/api/.env.example` and `apps/web/.env.example` in the same commit.
+
+## Folder ownership
+
+- Do not edit files outside your owned folder (see `.github/CODEOWNERS`)
+  without opening a PR and getting the owner to merge it.
+- Do not edit `apps/api/src/app.ts` except to add or remove a single route
+  registration line for your own module. No business logic, no route
+  handlers, no middleware bodies live in that file.
+- Same rule for `apps/web/src/App.tsx`: one `<Route>` line per page folder,
+  nothing else.
+- `apps/web/src/components/` and `packages/shared/` are shared. PR only.
+
+## Database migrations
+
+- Always `git pull` immediately before generating a new migration file, so
+  migration numbers never collide across two people working at the same time.
+- Migrations live in `apps/api/db/migrations/` as `NNN_description.sql` and
+  are applied in sorted filename order. Never edit an existing migration that
+  someone else has already run — add a new one.
+
+## Commits and branches
+
+- Commit messages: `[module] short description`
+  e.g. `[escrow] add chapa webhook signature verification`
+- Branches: `feat/<module>-<short-description>`
+  e.g. `feat/escrow-chapa-webhook`, `feat/discovery-map-view`
+- Branches are short-lived: merge within a couple of hours, not end of day.
+  Push at least every 30-45 minutes even mid-feature, so conflicts stay small.
+
+## Stack conventions
+
+- TypeScript everywhere, ESM modules. Relative imports inside `apps/api` must
+  carry the `.js` extension (`./config/env.js`), even though the source is
+  `.ts` — that is a Node ESM requirement, not a typo.
+- Types shared between API and web go in `packages/shared`, imported as
+  `@zeyla/shared`. Do not duplicate a type on both sides.
+- Prefer a `501 not_implemented` stub over a silent empty handler until a flow
+  is real.

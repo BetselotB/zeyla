@@ -1,5 +1,8 @@
 -- Zeyla core schema (PostGIS-enabled)
--- Runs automatically on first `docker compose up`
+-- Runs automatically on first `docker compose up`, or via `pnpm db:migrate`.
+--
+-- Adding a migration? `git pull` first, then create the next number
+-- (002_..., 003_...). Never edit a migration someone else has already run.
 
 CREATE EXTENSION IF NOT EXISTS postgis;
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
@@ -100,7 +103,7 @@ CREATE TABLE IF NOT EXISTS escrow_ledger (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   contract_id UUID NOT NULL REFERENCES contracts(id),
   amount NUMERIC(12,2) NOT NULL,
-  telebirr_ref TEXT,
+  chapa_tx_ref TEXT,
   status escrow_status NOT NULL DEFAULT 'pending',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   released_at TIMESTAMPTZ

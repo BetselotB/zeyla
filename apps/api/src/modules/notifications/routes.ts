@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { notImplemented } from "../../lib/respond.js";
 
 /**
  * Notifications — push + voice polish layer (ElevenLabs).
@@ -7,8 +8,8 @@ import { Router } from "express";
 export const notificationsRouter = Router();
 
 notificationsRouter.post("/voice-alert", (_req, res) => {
-  res.status(501).json({
-    error: "not_implemented",
-    hint: "ElevenLabs TTS for ping alerts / reading trust score aloud",
-  });
+  notImplemented(
+    res,
+    "ElevenLabs TTS for ping alerts / reading trust score aloud",
+  );
 });
