@@ -21,23 +21,30 @@ export function DiscoveryNav() {
   );
 }
 
-export function TrustStrip() {
-  const logos = [
-    "attentive",
-    "coinbase",
-    "Outreach",
-    "upwork",
-    "DocuSign",
-    "NETFLIX",
-    "zapier",
-  ];
+const SPONSORS: { src: string; alt: string; invert?: boolean }[] = [
+  { src: "/sponsers/addis_full.png", alt: "Addis AI", invert: true },
+  { src: "/sponsers/ethiotel.png", alt: "Ethio Telecom" },
+  // { src: "/sponsers/eleven-labs.png", alt: "ElevenLabs" },
+  // { src: "/sponsers/render.png", alt: "Render" },
+  { src: "/sponsers/exa.png", alt: "Exa" },
+  // { src: "/sponsers/fal.png", alt: "Fal" },
+  // { src: "/sponsers/flow.png", alt: "Flow" },
+];
 
+export function TrustStrip() {
   return (
     <section className="z-trust-band">
       <p>Trusted by 12,000+ creators</p>
       <div className="z-trust-logos">
-        {logos.map((name) => (
-          <span key={name}>{name}</span>
+        {SPONSORS.map(({ src, alt, invert }) => (
+          <span key={src} className="z-trust-logo">
+            <img
+              src={src}
+              alt={alt}
+              className={`z-trust-logo-img${invert ? " z-trust-logo-img--invert" : ""}`}
+              loading="lazy"
+            />
+          </span>
         ))}
       </div>
     </section>

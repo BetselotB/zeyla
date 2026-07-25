@@ -1,13 +1,17 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLanguage, languageLabels } from "../lib/language.js";
 import type { LanguageCode } from "../lib/types.js";
 import { classify, createRequest, transcribe } from "../lib/api.js";
 import type { Classification } from "../lib/types.js";
 import { ClassificationCard } from "./ClassificationCard.js";
 import { GlassSelect } from "./GlassSelect.js";
+import { VoiceListening } from "./VoiceListening.js";
 
 const PLACEHOLDER =
   "Welcome to Zeyla. Turn your problem into a matched provider in seconds…";
+
+/** Safety net only — recording normally ends when the user taps stop. */
+const MAX_RECORD_SECONDS = 300;
 
 interface ProblemIntakeProps {
   onResults: (classification: Classification, requestId: number) => void;
@@ -82,38 +86,87 @@ export function ProblemIntake({ onResults }: ProblemIntakeProps) {
   const [category, setCategory] = useState("any");
   const [serviceStyle, setServiceStyle] = useState("professional");
   const [urgency, setUrgency] = useState("medium");
-  const [recording, setRecording] = useState(false);
+  const [voicePhase, setVoicePhase] = useState<
+    "idle" | "listening" | "transcribing"
+  >("idle");
+  const [micStream, setMicStream] = useState<MediaStream | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [loading, setLoading] = useState(false);
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [classification, setClassification] = useState<Classification | null>(null);
 
+  const stopRecordingRef = useRef<(() => void) | null>(null);
+  const recording = voicePhase !== "idle";
+
   const languageOptions = (Object.keys(languageLabels) as LanguageCode[]).map(
     (code) => ({ value: code, label: languageLabels[code] }),
   );
 
+  useEffect(() => {
+    if (voicePhase !== "listening") return;
+    const id = window.setInterval(() => {
+      setElapsedSeconds((s) => s + 1);
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [voicePhase]);
+
+  useEffect(() => {
+    if (!micStream) return;
+    return () => micStream.getTracks().forEach((t) => t.stop());
+  }, [micStream]);
+
   async function handleRecord() {
     setError(null);
-    setRecording(true);
+
+    let stream: MediaStream;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
-      const chunks: Blob[] = [];
-      recorder.ondataavailable = (e) => chunks.push(e.data);
-      recorder.start();
-      await new Promise((r) => setTimeout(r, 6000));
-      recorder.stop();
-      stream.getTracks().forEach((t) => t.stop());
-      await new Promise((r) => {
-        recorder.onstop = r;
-      });
-      const blob = new Blob(chunks, { type: "audio/webm" });
-      const transcription = await transcribe(blob, lang);
-      setText(transcription);
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch {
       setError("Microphone access failed. Type your problem instead.");
+      return;
+    }
+
+    setMicStream(stream);
+    setElapsedSeconds(0);
+    setVoicePhase("listening");
+
+    try {
+      const recorder = new MediaRecorder(stream);
+      const chunks: Blob[] = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data.size) chunks.push(e.data);
+      };
+      const stopped = new Promise<void>((resolve) => {
+        recorder.onstop = () => resolve();
+      });
+      recorder.start();
+
+      // Waits for the stop button; the timeout is only a runaway guard.
+      await new Promise<void>((resolve) => {
+        const timer = window.setTimeout(resolve, MAX_RECORD_SECONDS * 1000);
+        stopRecordingRef.current = () => {
+          window.clearTimeout(timer);
+          resolve();
+        };
+      });
+
+      if (recorder.state !== "inactive") recorder.stop();
+      await stopped;
+
+      stream.getTracks().forEach((t) => t.stop());
+      setMicStream(null);
+      setVoicePhase("transcribing");
+
+      const blob = new Blob(chunks, { type: "audio/webm" });
+      setText(await transcribe(blob, lang));
+    } catch {
+      setError("Voice capture failed. Type your problem instead.");
     } finally {
-      setRecording(false);
+      stopRecordingRef.current = null;
+      stream.getTracks().forEach((t) => t.stop());
+      setMicStream(null);
+      setVoicePhase("idle");
     }
   }
 
@@ -215,7 +268,11 @@ export function ProblemIntake({ onResults }: ProblemIntakeProps) {
                 disabled={recording}
               >
                 <MicIcon />
-                {recording ? "Recording…" : "Voice"}
+                {voicePhase === "listening"
+                  ? "Listening…"
+                  : voicePhase === "transcribing"
+                    ? "Transcribing…"
+                    : "Voice"}
               </button>
             </div>
 
@@ -241,6 +298,14 @@ export function ProblemIntake({ onResults }: ProblemIntakeProps) {
         </p>
       </section>
       {error && <div className="z-error">{error}</div>}
+      {recording && (
+        <VoiceListening
+          phase={voicePhase === "listening" ? "listening" : "transcribing"}
+          stream={micStream}
+          elapsedSeconds={elapsedSeconds}
+          onStop={() => stopRecordingRef.current?.()}
+        />
+      )}
     </>
   );
 }

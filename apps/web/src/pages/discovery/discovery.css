@@ -523,16 +523,37 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 2.5rem 3rem;
-  max-width: 900px;
+  gap: 1.75rem 2.25rem;
+  max-width: 920px;
   margin: 0 auto;
 }
 
-.z-trust-logos span {
-  font-size: 0.9375rem;
-  font-weight: 600;
-  color: rgba(17, 17, 17, 0.28);
-  letter-spacing: -0.01em;
+.z-trust-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100px;
+  height: 32px;
+  flex-shrink: 0;
+}
+
+.z-trust-logo-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  filter: grayscale(100%);
+  opacity: 0.42;
+  transition: opacity 0.15s;
+}
+
+.z-trust-logo-img--invert {
+  filter: grayscale(100%) invert(1);
+}
+
+.z-trust-logo:hover .z-trust-logo-img {
+  opacity: 0.62;
 }
 
 /* ── Classification ── */
@@ -730,6 +751,138 @@
   margin-inline: auto;
 }
 
+/* ── Voice listening overlay (WebGL blob) ── */
+.z-voice-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 210;
+  background: rgba(17, 17, 17, 0.22);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  animation: z-dropdown-in 0.25s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.z-voice-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  max-width: 380px;
+  padding: 2rem 2rem 1.75rem;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 28px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.14);
+}
+
+.z-voice-blob {
+  position: relative;
+  width: 240px;
+  height: 240px;
+  display: grid;
+  place-items: center;
+}
+
+.z-voice-blob canvas {
+  display: block;
+  position: relative;
+  z-index: 1;
+}
+
+/* Visible only when WebGL / motion is unavailable — the canvas covers it. */
+.z-voice-blob-fallback {
+  position: absolute;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: #111;
+  animation: z-voice-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes z-voice-pulse {
+  0%, 100% {
+    transform: scale(0.92);
+    box-shadow: 0 0 0 0 rgba(17, 17, 17, 0.28);
+  }
+  50% {
+    transform: scale(1);
+    box-shadow: 0 0 0 22px rgba(17, 17, 17, 0);
+  }
+}
+
+.z-voice-title {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.z-voice-hint {
+  margin: 0 0 0.35rem;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: rgba(17, 17, 17, 0.5);
+}
+
+.z-voice-timer {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: rgba(17, 17, 17, 0.45);
+  font-variant-numeric: tabular-nums;
+}
+
+.z-voice-rec-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #dc2626;
+  animation: z-voice-rec 1.4s ease-in-out infinite;
+}
+
+@keyframes z-voice-rec {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+.z-voice-dots {
+  display: inline-flex;
+  gap: 0.3rem;
+  margin-top: 0.4rem;
+}
+
+.z-voice-dots i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(17, 17, 17, 0.3);
+  animation: z-voice-dot 1.1s ease-in-out infinite;
+}
+
+.z-voice-dots i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.z-voice-dots i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes z-voice-dot {
+  0%, 100% { opacity: 0.25; transform: translateY(0); }
+  50% { opacity: 0.8; transform: translateY(-3px); }
+}
+
 /* ── Language overlay ── */
 .z-lang-overlay {
   position: fixed;
@@ -785,6 +938,13 @@
     backdrop-filter: blur(10px) saturate(1.2);
     -webkit-backdrop-filter: blur(10px) saturate(1.2);
   }
+
+  .z-voice-overlay,
+  .z-voice-blob-fallback,
+  .z-voice-rec-dot,
+  .z-voice-dots i {
+    animation: none !important;
+  }
 }
 
 @media (max-width: 768px) {
@@ -831,6 +991,20 @@
   }
 
   .z-trust-logos {
-    gap: 1.5rem 2rem;
+    gap: 1.25rem 1.5rem;
+  }
+
+  .z-trust-logo {
+    width: 80px;
+    height: 26px;
+  }
+
+  .z-voice-panel {
+    padding: 1.5rem 1.25rem 1.35rem;
+  }
+
+  .z-voice-blob {
+    width: 180px;
+    height: 180px;
   }
 }
