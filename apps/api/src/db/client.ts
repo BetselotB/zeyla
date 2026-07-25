@@ -3,8 +3,12 @@ import { env } from "../config/env.js";
 
 const { Pool } = pg;
 
+const isSupabase = /supabase\.(co|com)/i.test(env.DATABASE_URL);
+
 export const pool = new Pool({
   connectionString: env.DATABASE_URL,
+  // Supabase terminates TLS with a chain Node does not trust by default.
+  ...(isSupabase ? { ssl: { rejectUnauthorized: false } } : {}),
 });
 
 export async function query<T extends pg.QueryResultRow = pg.QueryResultRow>(

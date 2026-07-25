@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Classification } from "../lib/types.js";
+import type { ServiceRequestDto } from "../lib/types.js";
 import { DiscoveryNav, TrustStrip } from "./DiscoveryNav.js";
 import { LanguageSelect } from "./LanguageSelect.js";
 import { ProblemIntake } from "./ProblemIntake.js";
@@ -12,10 +12,7 @@ function hasStoredLanguage() {
 
 export function LandingView() {
   const [showLang, setShowLang] = useState(!hasStoredLanguage());
-  const [results, setResults] = useState<{
-    classification: Classification;
-    requestId: number;
-  } | null>(null);
+  const [request, setRequest] = useState<ServiceRequestDto | null>(null);
 
   return (
     <div className="z-page z-page-enter-stagger">
@@ -39,20 +36,13 @@ export function LandingView() {
         </p>
       </section>
 
-      {!results ? (
-        <ProblemIntake
-          onResults={(classification, requestId) =>
-            setResults({ classification, requestId })
-          }
-        />
+      {!request ? (
+        <ProblemIntake onResults={(created) => setRequest(created)} />
       ) : (
-        <ProviderResults
-          classification={results.classification}
-          requestId={results.requestId}
-        />
+        <ProviderResults request={request} />
       )}
 
-      {!results && <TrustStrip />}
+      {!request && <TrustStrip />}
     </div>
   );
 }

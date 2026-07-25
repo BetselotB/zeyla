@@ -4,7 +4,7 @@ import {
   getTrustBreakdown,
   submitFlag,
   submitRating,
-  transcribe,
+  transcribeText,
 } from "../discovery/lib/api.js";
 import { MOCK_PROVIDERS } from "../discovery/lib/mockData.js";
 import type { TrustBreakdown } from "../discovery/lib/types.js";
@@ -68,7 +68,7 @@ function ReviewsContent() {
         recorder.onstop = r;
       });
       const blob = new Blob(chunks, { type: "audio/webm" });
-      const text = await transcribe(blob, lang);
+      const text = await transcribeText(blob, lang);
       setComment((c) => (c ? `${c} ${text}` : text));
     } catch {
       setError("Voice recording failed. Type your review instead.");

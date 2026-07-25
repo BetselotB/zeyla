@@ -1,11 +1,10 @@
 import { useState } from "react";
-import type { Provider } from "../lib/types.js";
-import type { TrustBreakdown } from "../lib/types.js";
 import { getTrustBreakdown } from "../lib/api.js";
+import type { ProviderMatch, TrustBreakdown } from "../lib/types.js";
 
 interface ProviderCardProps {
-  provider: Provider;
-  onRequest: (providerId: number) => void;
+  match: ProviderMatch;
+  onRequest: (providerId: string) => void;
   requesting?: boolean;
 }
 
@@ -15,11 +14,8 @@ function trustRingClass(score: number) {
   return "low";
 }
 
-export function ProviderCard({
-  provider,
-  onRequest,
-  requesting,
-}: ProviderCardProps) {
+export function ProviderCard({ match, onRequest, requesting }: ProviderCardProps) {
+  const { provider, reason, rank } = match;
   const [expanded, setExpanded] = useState(false);
   const [breakdown, setBreakdown] = useState<TrustBreakdown | null>(null);
   const [loadingBreakdown, setLoadingBreakdown] = useState(false);
@@ -31,37 +27,53 @@ export function ProviderCard({
     }
     setLoadingBreakdown(true);
     try {
-      const data = await getTrustBreakdown(provider.id);
-      setBreakdown(data);
+      setBreakdown(await getTrustBreakdown(provider.id));
       setExpanded(true);
+    } catch {
+      // The score itself is already on the badge; the breakdown is a bonus.
     } finally {
       setLoadingBreakdown(false);
     }
   }
 
   return (
-    <article
-      className={`z-provider-card${provider.is_boosted ? " boosted" : ""}`}
-    >
+    <article className={`z-provider-card${rank === 1 ? " boosted" : ""}`}>
       <div>
         <h3 className="z-provider-name">
-          {provider.name}
-          {provider.is_verified && (
+          {provider.name ?? "Unnamed provider"}
+          {provider.kycStatus === "verified" && (
             <span className="z-verified" style={{ marginLeft: "0.5rem" }}>
               ✓ Verified
             </span>
           )}
+          {rank === 1 && (
+            <span className="z-verified" style={{ marginLeft: "0.5rem" }}>
+              Best match
+            </span>
+          )}
         </h3>
         <div className="z-provider-meta">
-          <span style={{ textTransform: "capitalize" }}>{provider.category}</span>
-          <span>{provider.location_area}</span>
-          <span className="z-stars">★ {provider.avg_rating.toFixed(1)}</span>
-          <span>
-            {provider.price_min}–{provider.price_max} ETB
+          <span style={{ textTransform: "capitalize" }}>
+            {provider.category.replace(/_/g, " ")}
           </span>
-          <span>{provider.avg_response_minutes} min response</span>
+          <span>{(provider.distanceMeters / 1000).toFixed(1)} km away</span>
+          {provider.avgRating !== null && (
+            <span className="z-stars">
+              ★ {provider.avgRating.toFixed(1)} ({provider.reviewCount})
+            </span>
+          )}
+          <span>{provider.completedContracts} jobs completed</span>
+          {provider.isOnline && <span>Online now</span>}
         </div>
-        <p className="z-provider-bio">{provider.bio}</p>
+
+        {/* Why this provider, for this problem. */}
+        <p className="z-provider-bio">{reason}</p>
+        {provider.bio && (
+          <p className="z-provider-bio" style={{ opacity: 0.7 }}>
+            {provider.bio}
+          </p>
+        )}
+
         <button
           type="button"
           className="z-btn z-btn-primary"
@@ -79,10 +91,8 @@ export function ProviderCard({
         onClick={toggleBreakdown}
         aria-expanded={expanded}
       >
-        <span
-          className={`z-trust-ring ${trustRingClass(provider.trust_score)}`}
-        >
-          {provider.trust_score}
+        <span className={`z-trust-ring ${trustRingClass(provider.trustScore)}`}>
+          {Math.round(provider.trustScore)}
         </span>
         <span className="z-trust-label">Trust</span>
       </button>

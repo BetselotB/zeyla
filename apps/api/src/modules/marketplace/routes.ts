@@ -1,9 +1,9 @@
 import { Router } from "express";
 import { requireAuth } from "../auth/middleware.js";
-import { parseServiceRequest } from "./ai/addisAi.js";
 import { getProviderDetail, searchProviders } from "./discovery.service.js";
 import { requireActor } from "./lib/actor.js";
 import { handle } from "./lib/handle.js";
+import { matchProviders, pairRequestWithProvider } from "./matching.service.js";
 import {
   fanoutPings,
   listProviderPings,
@@ -18,15 +18,22 @@ import {
 import {
   createRequestSchema,
   fanoutSchema,
+  matchQuerySchema,
+  pairSchema,
   pingResponseSchema,
   providerDetailQuerySchema,
   providerPingsQuerySchema,
   providerSearchSchema,
+  transcribeSchema,
   uuidSchema,
   voiceParseSchema,
   voiceRequestSchema,
 } from "./schemas.js";
-import { createRequestFromVoice } from "./voice.service.js";
+import {
+  createRequestFromVoice,
+  interpretTranscript,
+  resolveTranscript,
+} from "./voice.service.js";
 
 /**
  * Marketplace — discovery, service requests, pings.
@@ -112,9 +119,44 @@ marketplaceRouter.post(
   ),
 );
 
+// --- Matching ----------------------------------------------------------------
+
+/**
+ * Who should take this job, best first, with a reason for each. Read-only —
+ * nobody is contacted until the customer commits below.
+ */
+marketplaceRouter.get(
+  "/requests/:id/matches",
+  requireAuth,
+  handle(async (req) => {
+    const actor = requireActor(req);
+    const requestId = uuidSchema.parse(req.params.id);
+    const options = matchQuerySchema.parse(req.query);
+    return matchProviders(actor, requestId, options);
+  }),
+);
+
+/** Commit to a pairing: ping the named provider, or the best-ranked ones. */
+marketplaceRouter.post(
+  "/requests/:id/match",
+  requireAuth,
+  handle(
+    async (req) => {
+      const actor = requireActor(req);
+      const requestId = uuidSchema.parse(req.params.id);
+      const { provider_id: snakeId, providerId, ...rest } = pairSchema.parse(req.body ?? {});
+      return pairRequestWithProvider(actor, requestId, {
+        ...rest,
+        providerId: providerId ?? snakeId,
+      });
+    },
+    { status: 201 },
+  ),
+);
+
 // --- Voice requests ----------------------------------------------------------
 
-/** Whisperflow transcript -> Addis AI parse -> a real service request. */
+/** Addis AI transcript -> Gemini parse -> a real service request. */
 marketplaceRouter.post(
   "/voice-requests",
   requireAuth,
@@ -129,15 +171,41 @@ marketplaceRouter.post(
 );
 
 /**
- * Parse only — lets the UI preview what was understood before committing.
- * Behind auth because it spends Addis AI quota on whatever text it is handed.
+ * Audio -> text only. The intake screen puts the transcript in the textarea so
+ * the customer can correct a mishearing before anything is created.
  */
+marketplaceRouter.post(
+  "/transcribe",
+  requireAuth,
+  handle(async (req) => {
+    const input = transcribeSchema.parse(req.body);
+    const transcription = await resolveTranscript(input);
+    return { transcription, transcript: transcription.transcript };
+  }),
+);
+
+/**
+ * Text -> structured request, without creating one. Lets the UI show what was
+ * understood, translated, before committing. Behind auth because it spends
+ * model quota on whatever text it is handed.
+ */
+marketplaceRouter.post(
+  "/classify",
+  requireAuth,
+  handle(async (req) => {
+    const { transcript, language } = voiceParseSchema.parse(req.body);
+    const parse = await interpretTranscript(transcript, language);
+    return { transcript, parse, classification: parse };
+  }),
+);
+
+/** Kept as an alias of /classify — the smoke tests and API.md name this path. */
 marketplaceRouter.post(
   "/voice/parse",
   requireAuth,
   handle(async (req) => {
-    const { transcript } = voiceParseSchema.parse(req.body);
-    const parse = await parseServiceRequest(transcript);
+    const { transcript, language } = voiceParseSchema.parse(req.body);
+    const parse = await interpretTranscript(transcript, language);
     return { transcript, parse };
   }),
 );

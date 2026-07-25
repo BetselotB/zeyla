@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { getRequest } from "../discovery/lib/api.js";
-import { MOCK_PROVIDERS } from "../discovery/lib/mockData.js";
-import type { ServiceRequest } from "../discovery/lib/types.js";
+import { getProvider, getRequest } from "../discovery/lib/api.js";
+import type { ProviderSummary, ServiceRequestDto } from "../discovery/lib/types.js";
 import { LiveMap, useSocketLocation } from "./components/LiveMap.js";
 import { MapLegend } from "./components/MapLegend.js";
 import { ProviderInfo } from "./components/ProviderInfo.js";
@@ -12,13 +11,12 @@ import { AnimatedMeshBg } from "../discovery/components/AnimatedMeshBg.js";
 import "../discovery/discovery.css";
 import "./tracking.css";
 
-const USER_POS: [number, number] = [9.0054, 38.7636];
 const PROVIDER_START: [number, number] = [8.9806, 38.7578];
 
-function stepIndex(status: ServiceRequest["status"]) {
-  if (status === "declined" || status === "cancelled") return -1;
-  if (status === "sent" || status === "matched" || status === "draft") return 0;
-  if (status === "accepted") return 1;
+function stepIndex(status: ServiceRequestDto["status"]) {
+  if (status === "cancelled") return -1;
+  if (status === "pending" || status === "pinged") return 0;
+  if (status === "accepted" || status === "in_progress") return 1;
   if (status === "completed") return 2;
   return 0;
 }
@@ -26,18 +24,24 @@ function stepIndex(status: ServiceRequest["status"]) {
 export function TrackingPage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
-  const requestId = Number(params.get("requestId") ?? "100");
-  const providerId = Number(params.get("providerId") ?? "1");
-  const contractId = String(requestId);
+  const requestId = params.get("requestId") ?? "";
+  const providerId = params.get("providerId") ?? "";
 
-  const provider = MOCK_PROVIDERS.find((p) => p.id === providerId);
   const { position: providerPos, isLive } = useSocketLocation(
-    contractId,
+    requestId,
     PROVIDER_START,
   );
 
-  const [request, setRequest] = useState<ServiceRequest | null>(null);
+  const [provider, setProvider] = useState<ProviderSummary | null>(null);
+  const [request, setRequest] = useState<ServiceRequestDto | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!providerId) return;
+    getProvider(providerId)
+      .then(setProvider)
+      .catch(() => setProvider(null));
+  }, [providerId]);
 
   useEffect(() => {
     if (!requestId) return;
@@ -45,27 +49,20 @@ export function TrackingPage() {
 
     async function poll() {
       try {
-        const data = await getRequest(requestId);
-        if (!cancelled) {
-          setRequest(data);
-          if (
-            ["accepted", "declined", "completed", "cancelled"].includes(
-              data.status,
-            )
-          ) {
-            return true;
-          }
-        }
+        const { request: data } = await getRequest(requestId);
+        if (cancelled) return false;
+        setRequest(data);
+        // Stop polling once the outcome can no longer change on its own.
+        return ["completed", "cancelled"].includes(data.status);
       } catch {
         if (!cancelled) setError("Could not load request status.");
+        return false;
       }
-      return false;
     }
 
     poll();
     const interval = setInterval(async () => {
-      const done = await poll();
-      if (done) clearInterval(interval);
+      if (await poll()) clearInterval(interval);
     }, 2500);
 
     return () => {
@@ -74,17 +71,14 @@ export function TrackingPage() {
     };
   }, [requestId]);
 
-  useEffect(() => {
-    if (request?.status === "sent") {
-      const t = setTimeout(() => {
-        setRequest((r) => (r ? { ...r, status: "accepted" } : r));
-      }, 5000);
-      return () => clearTimeout(t);
-    }
-  }, [request?.status]);
+  // The customer's own pin comes from the request, which stores the GPS point
+  // the search actually ran from.
+  const userPos: [number, number] = request
+    ? [request.lat, request.lng]
+    : [9.0054, 38.7636];
 
   const currentStep = request ? stepIndex(request.status) : 0;
-  const isDeclined = request?.status === "declined";
+  const isDeclined = request?.status === "cancelled";
   const isCompleted = request?.status === "completed";
   const reviewsUrl = `/reviews?requestId=${requestId}&providerId=${providerId}`;
 
@@ -105,8 +99,8 @@ export function TrackingPage() {
             active.
           </p>
           <div className="tr-request-pill">
-            Request <strong>#{requestId}</strong>
-            {provider && (
+            Request <strong>#{requestId.slice(0, 8)}</strong>
+            {provider?.name && (
               <>
                 <span aria-hidden="true">·</span>
                 <strong>{provider.name}</strong>
@@ -120,7 +114,7 @@ export function TrackingPage() {
         <div className="tr-grid">
           <div className="tr-map-card">
             <div className="tr-map-wrap">
-              <LiveMap userPos={USER_POS} providerPos={providerPos} />
+              <LiveMap userPos={userPos} providerPos={providerPos} />
             </div>
             <MapLegend isSimulated={!isLive} />
           </div>
@@ -131,6 +125,7 @@ export function TrackingPage() {
               requestId={requestId}
               status={request?.status ?? null}
             />
+
 
             <StatusTimeline
               currentStep={currentStep}

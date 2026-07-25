@@ -5,14 +5,17 @@ import { ApiError } from "../lib/errors.js";
 /**
  * Whisperflow speech-to-text.
  *
+ * DORMANT. `api.whisperflow.ai` does not resolve and no account exists, so with
+ * WHISPERFLOW_API_KEY unset the STT chain skips this file entirely and uses
+ * Addis AI (see ./addisAi.ts), which is trained on Amharic and Afaan Oromo and
+ * is the better transcriber for this product regardless. Kept as an escape
+ * hatch: set the key and it becomes the fallback when Addis AI is down.
+ *
  * The key is read from the environment on every call rather than captured at
  * import time, so nothing here ever holds a literal secret and a key added to
  * .env takes effect on the next request.
  *
- * NOTE: the request/response shape below is written defensively — it accepts
- * the field names these APIs commonly use — because we have no sandbox account
- * to verify against yet. Confirm against the real docs before the demo; only
- * this file changes.
+ * The request/response shape below is unverified against a real account.
  */
 const REQUEST_TIMEOUT_MS = 15_000;
 
@@ -76,6 +79,7 @@ export async function transcribe(
       language: readString(payload, "language") ?? input.language ?? null,
       durationSeconds: readNumber(payload, "duration"),
       source: "whisperflow",
+      confidence: readNumber(payload, "confidence"),
     };
   } catch (err) {
     if (err instanceof ApiError) throw err;

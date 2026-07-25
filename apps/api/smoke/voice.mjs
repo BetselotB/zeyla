@@ -13,6 +13,13 @@ const check = (label, cond, detail) => {
 
 const api = makeApi(API);
 
+/**
+ * Which stage answered depends on which keys the server has, so these suites
+ * assert the understanding is *correct* rather than which model produced it.
+ * The one thing always required is that the stage identifies itself honestly.
+ */
+const KNOWN_SOURCES = ["gemini", "addis_ai", "heuristic"];
+
 try {
   const customerToken = await login(API, PHONES.customer);
 
@@ -33,7 +40,11 @@ try {
     burst,
   );
   check("picks up the neighbourhood", burst.location.label === "Bole", burst.location);
-  check("marks itself as the offline parser", burst.source === "heuristic");
+  check(
+    "names the stage that understood it",
+    KNOWN_SOURCES.includes(burst.source),
+    burst.source,
+  );
 
   const power = await parse(
     "No power in half the house, the breaker keeps tripping, can someone come today",
@@ -59,7 +70,8 @@ try {
     vague.category === "other" && vague.urgency === "low",
     vague,
   );
-  check("low confidence on a vague request", vague.confidence <= 0.3, vague.confidence);
+  // Below the 0.6 floor is what actually matters: it triggers the confirm step.
+  check("low confidence on a vague request", vague.confidence < 0.6, vague.confidence);
 
   const tutor = await parse(
     "Looking for a maths tutor for my son before his exam next week",
@@ -72,15 +84,19 @@ try {
   });
   check("audio or transcript is required", noAudio.status === 400, noAudio.json.error);
 
-  const noKey = await api("POST", "/marketplace/voice-requests", {
+  const badAudio = await api("POST", "/marketplace/voice-requests", {
     token: customerToken,
     body: {
-      audioUrl: "https://example.com/clip.m4a",
+      audioUrl: "https://example.com/clip-that-does-not-exist.m4a",
       lat: 8.995,
       lng: 38.787,
     },
   });
-  check("missing Whisperflow key is an honest 503", noKey.status === 503, noKey.json);
+  check(
+    "unfetchable audio fails with an honest reason, never a 500",
+    badAudio.status >= 400 && badAudio.status < 504 && badAudio.status !== 500,
+    { status: badAudio.status, error: badAudio.json.error },
+  );
 
   const created = await api("POST", "/marketplace/voice-requests", {
     token: customerToken,
@@ -107,7 +123,11 @@ try {
     d.request.voiceTranscript.startsWith("My toilet"),
     d.request.description,
   );
-  check("parse is stored for audit", d.request.nlp.source === "heuristic", d.request.nlp);
+  check(
+    "parse is stored for audit",
+    KNOWN_SOURCES.includes(d.request.nlp?.source),
+    d.request.nlp,
+  );
   check(
     "spoken place becomes a label, not the pin",
     d.request.addressLabel === "Megenagna" && d.request.lat === 8.995,
@@ -147,10 +167,12 @@ try {
     "/trust/providers/22222222-2222-4222-8222-222222222201?explain=ai",
   );
   check(
-    "explain=ai degrades to the template without a key",
-    ai.status === 200 && ai.json.data.explanation.source === "template",
+    "explain=ai answers either way — model or template",
+    ai.status === 200 &&
+      ["template", "addis_ai"].includes(ai.json.data.explanation.source),
     ai.json.data.explanation.source,
   );
+  // The factors are computed, never generated, so the model cannot drop one.
   check("explanation still has its factors", ai.json.data.explanation.factors.length === 6);
 } catch (err) {
   failures++;

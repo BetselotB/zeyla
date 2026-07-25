@@ -1,16 +1,21 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { SERVICE_CATEGORIES, URGENCY_LEVELS } from "@zeyla/shared";
 import { useLanguage, languageLabels } from "../lib/language.js";
-import type { LanguageCode } from "../lib/types.js";
 import { classify, createRequest, transcribe } from "../lib/api.js";
-import type { Classification } from "../lib/types.js";
+import { getCoords } from "../lib/geo.js";
+import type {
+  LanguageCode,
+  ServiceRequestDto,
+  VoiceParseResult,
+} from "../lib/types.js";
 import { ClassificationCard } from "./ClassificationCard.js";
 import { GlassSelect } from "./GlassSelect.js";
 
 const PLACEHOLDER =
-  "Welcome to Zeyla. Turn your problem into a matched provider in seconds…";
+  "Describe your problem — speak or type in Amharic, Afaan Oromo, or English…";
 
 interface ProblemIntakeProps {
-  onResults: (classification: Classification, requestId: number) => void;
+  onResults: (request: ServiceRequestDto, parse: VoiceParseResult) => void;
 }
 
 function GlobeIcon() {
@@ -18,15 +23,6 @@ function GlobeIcon() {
     <svg className="z-selector-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3">
       <circle cx="8" cy="8" r="6" />
       <path d="M2 8h12M8 2c2 2.5 2 9.5 0 12M8 2c-2 2.5-2 9.5 0 12" />
-    </svg>
-  );
-}
-
-function BriefcaseIcon() {
-  return (
-    <svg className="z-selector-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3">
-      <rect x="2" y="5" width="12" height="8" rx="1.5" />
-      <path d="M6 5V4a2 2 0 012-2h0a2 2 0 012 2v1" />
     </svg>
   );
 }
@@ -58,62 +54,123 @@ function PersonIcon() {
   );
 }
 
+/** "any" lets the pipeline decide; anything else overrules it. */
 const CATEGORY_OPTIONS = [
-  { value: "any", label: "Any service" },
-  { value: "plumber", label: "Plumber" },
-  { value: "electrician", label: "Electrician" },
-];
-
-const STYLE_OPTIONS = [
-  { value: "professional", label: "Professional" },
-  { value: "standard", label: "Standard" },
-  { value: "express", label: "Express" },
+  { value: "any", label: "Detect service" },
+  ...SERVICE_CATEGORIES.filter((c) => c !== "other").map((c) => ({
+    value: c,
+    label: c.replace(/_/g, " ").replace(/^./, (ch) => ch.toUpperCase()),
+  })),
 ];
 
 const URGENCY_OPTIONS = [
-  { value: "low", label: "Low" },
-  { value: "medium", label: "Normal" },
-  { value: "high", label: "Urgent" },
+  { value: "auto", label: "Detect urgency" },
+  ...URGENCY_LEVELS.map((u) => ({
+    value: u,
+    label: u.replace(/^./, (ch) => ch.toUpperCase()),
+  })),
 ];
+
+/** Long enough for a sentence, short enough that nobody wonders if it hung. */
+const MAX_RECORDING_MS = 10_000;
+
+function readableError(err: unknown): string {
+  const code = err instanceof Error ? err.message : String(err);
+  switch (code) {
+    case "login_required":
+      return "Please sign in before sending a request.";
+    case "addis_ai_not_configured":
+      return "Voice is not configured on the server. Type your problem instead.";
+    case "addis_stt_timeout":
+    case "addis_stt_unreachable":
+      return "The transcription service did not answer. Type your problem instead.";
+    case "addis_stt_empty_transcript":
+      return "We could not hear anything. Try recording again, closer to the mic.";
+    case "matching_provider_not_found":
+      return "No providers are available near you right now.";
+    default:
+      return "Something went wrong. Please try again.";
+  }
+}
 
 export function ProblemIntake({ onResults }: ProblemIntakeProps) {
   const { lang, setLang, label } = useLanguage();
   const [text, setText] = useState("");
   const [category, setCategory] = useState("any");
-  const [serviceStyle, setServiceStyle] = useState("professional");
-  const [urgency, setUrgency] = useState("medium");
+  const [urgency, setUrgency] = useState("auto");
   const [recording, setRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [classification, setClassification] = useState<Classification | null>(null);
+  const [parse, setParse] = useState<VoiceParseResult | null>(null);
+  const stopRef = useRef<(() => void) | null>(null);
 
   const languageOptions = (Object.keys(languageLabels) as LanguageCode[]).map(
     (code) => ({ value: code, label: languageLabels[code] }),
   );
 
+  /**
+   * Records until the customer taps stop, or MAX_RECORDING_MS, then sends the
+   * clip to Addis AI. A fixed-length recording cut people off mid-sentence.
+   */
   async function handleRecord() {
+    if (recording) {
+      stopRef.current?.();
+      return;
+    }
+
     setError(null);
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      setError("Microphone access was refused. Type your problem instead.");
+      return;
+    }
+
     setRecording(true);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const recorder = new MediaRecorder(stream);
       const chunks: Blob[] = [];
-      recorder.ondataavailable = (e) => chunks.push(e.data);
-      recorder.start();
-      await new Promise((r) => setTimeout(r, 6000));
-      recorder.stop();
-      stream.getTracks().forEach((t) => t.stop());
-      await new Promise((r) => {
-        recorder.onstop = r;
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data);
+      };
+
+      const finished = new Promise<void>((resolve) => {
+        recorder.onstop = () => resolve();
       });
-      const blob = new Blob(chunks, { type: "audio/webm" });
-      const transcription = await transcribe(blob, lang);
-      setText(transcription);
-    } catch {
-      setError("Microphone access failed. Type your problem instead.");
-    } finally {
+
+      recorder.start();
+      const timeout = setTimeout(() => recorder.stop(), MAX_RECORDING_MS);
+      stopRef.current = () => {
+        clearTimeout(timeout);
+        if (recorder.state === "recording") recorder.stop();
+      };
+
+      await finished;
+      clearTimeout(timeout);
       setRecording(false);
+
+      const blob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
+      if (blob.size === 0) {
+        setError("The recording was empty. Try again.");
+        return;
+      }
+
+      setTranscribing(true);
+      const transcription = await transcribe(blob, lang);
+      // Append rather than replace, so a second take adds to the first.
+      setText((prev) =>
+        prev.trim() ? `${prev.trim()} ${transcription.transcript}` : transcription.transcript,
+      );
+    } catch (err) {
+      setError(readableError(err));
+    } finally {
+      stream.getTracks().forEach((t) => t.stop());
+      stopRef.current = null;
+      setRecording(false);
+      setTranscribing(false);
     }
   }
 
@@ -125,41 +182,54 @@ export function ProblemIntake({ onResults }: ProblemIntakeProps) {
     setLoading(true);
     setError(null);
     try {
-      const result = await classify(text.trim());
-      setClassification({ ...result, urgency: urgency as Classification["urgency"] });
-    } catch {
-      setError("Classification failed. Please try again.");
+      const result = await classify(text.trim(), lang);
+      setParse({
+        ...result,
+        category: category === "any" ? result.category : (category as typeof result.category),
+        urgency: urgency === "auto" ? result.urgency : (urgency as typeof result.urgency),
+      });
+    } catch (err) {
+      setError(readableError(err));
     } finally {
       setLoading(false);
     }
   }
 
   async function handleConfirm() {
-    if (!classification) return;
+    if (!parse) return;
     setConfirmLoading(true);
     setError(null);
     try {
-      const request = await createRequest({
-        ...classification,
-        text: text.trim(),
-        service_style: serviceStyle,
-        category_hint: category,
+      // Device GPS decides where providers are searched. The neighbourhood the
+      // customer said is only ever a label on the request.
+      const coords = await getCoords();
+      const { request, parse: stored } = await createRequest({
+        transcript: text.trim(),
+        language: lang,
+        lat: coords.lat,
+        lng: coords.lng,
+        // Only send an override the customer actually picked. Echoing the
+        // model's own answer back would mark it human-confirmed and skip the
+        // confirm step on the next weak parse.
+        ...(category === "any" ? {} : { category: category as typeof parse.category }),
+        ...(urgency === "auto" ? {} : { urgency: urgency as typeof parse.urgency }),
       });
-      onResults(classification, request.id);
-    } catch {
-      setError("Could not create request. Please try again.");
+      onResults(request, stored);
+    } catch (err) {
+      setError(readableError(err));
     } finally {
       setConfirmLoading(false);
     }
   }
 
-  if (classification) {
+  if (parse) {
     return (
       <>
         {error && <div className="z-error">{error}</div>}
         <ClassificationCard
-          classification={classification}
-          onEdit={() => setClassification(null)}
+          parse={parse}
+          transcript={text.trim()}
+          onEdit={() => setParse(null)}
           onConfirm={handleConfirm}
           loading={confirmLoading}
         />
@@ -167,16 +237,19 @@ export function ProblemIntake({ onResults }: ProblemIntakeProps) {
     );
   }
 
+  const busy = recording || transcribing;
+
   return (
     <>
       <section className="z-glass-card">
         <div className="z-glass-inner">
           <textarea
             className="z-textarea"
-            placeholder={PLACEHOLDER}
+            placeholder={transcribing ? "Transcribing your recording…" : PLACEHOLDER}
             value={text}
             onChange={(e) => setText(e.target.value)}
             rows={5}
+            disabled={transcribing}
           />
           <div className="z-card-controls">
             <div className="z-selectors">
@@ -195,13 +268,6 @@ export function ProblemIntake({ onResults }: ProblemIntakeProps) {
                 ariaLabel="Language"
               />
               <GlassSelect
-                icon={<BriefcaseIcon />}
-                value={serviceStyle}
-                options={STYLE_OPTIONS}
-                onChange={setServiceStyle}
-                ariaLabel="Service style"
-              />
-              <GlassSelect
                 icon={<RefreshIcon />}
                 value={urgency}
                 options={URGENCY_OPTIONS}
@@ -212,10 +278,10 @@ export function ProblemIntake({ onResults }: ProblemIntakeProps) {
                 type="button"
                 className={`z-selector z-mic-btn${recording ? " recording" : ""}`}
                 onClick={handleRecord}
-                disabled={recording}
+                disabled={transcribing}
               >
                 <MicIcon />
-                {recording ? "Recording…" : "Voice"}
+                {recording ? "Stop" : transcribing ? "Transcribing…" : "Voice"}
               </button>
             </div>
 
@@ -223,7 +289,7 @@ export function ProblemIntake({ onResults }: ProblemIntakeProps) {
               type="button"
               className="z-btn z-btn-primary"
               onClick={handleSubmit}
-              disabled={loading || recording}
+              disabled={loading || busy}
             >
               {loading ? "Analyzing…" : "Find providers"}
               {!loading && (
@@ -237,7 +303,9 @@ export function ProblemIntake({ onResults }: ProblemIntakeProps) {
           </div>
         </div>
         <p className="z-microcopy">
-          No payment required · 200+ providers · 40+ neighborhoods · {label}
+          {recording
+            ? "Listening — tap stop when you are done"
+            : `Speak Amharic or Afaan Oromo · No payment required · ${label}`}
         </p>
       </section>
       {error && <div className="z-error">{error}</div>}
