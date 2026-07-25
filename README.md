@@ -49,15 +49,16 @@ render.yaml            Render blueprint stub
 ## Get started
 
 ```bash
-git clone <REPO_URL> zeyla
+git clone git@github.com:<ORG_OR_USER>/zeyla.git
 cd zeyla
 pnpm install
-pnpm --filter @zeyla/shared build
 cp apps/api/.env.example apps/api/.env
 cp apps/web/.env.example apps/web/.env.local
 pnpm db:up          # PostGIS + Redis
 pnpm dev            # API :4000 + web :5173
 ```
+
+> If the GitHub remote is not live yet, clone from whoever owns this folder, or ask a teammate to run `gh repo create zeyla --public --source=. --remote=origin --push`.
 
 Health check: [http://localhost:4000/api/health](http://localhost:4000/api/health)
 
