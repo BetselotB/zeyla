@@ -1,0 +1,589 @@
+/* Reviews — matches discovery glass / mesh vibe */
+
+.reviews-root {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  overflow-y: auto;
+  font-family: "Inter", system-ui, sans-serif;
+  color: #111;
+  background-color: #f4efe8;
+}
+
+.reviews-root *,
+.reviews-root *::before,
+.reviews-root *::after {
+  box-sizing: border-box;
+}
+
+.rv-page {
+  min-height: 100vh;
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 0 2rem 3.5rem;
+}
+
+/* ── Nav (uses shared z-glass-nav from discovery.css) ── */
+.rv-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: rgba(17, 17, 17, 0.45);
+  text-decoration: none;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  transition: color 0.15s;
+  justify-self: start;
+}
+
+.rv-back svg {
+  width: 14px;
+  height: 14px;
+}
+
+.rv-back:hover {
+  color: #111;
+}
+
+.rv-logo {
+  justify-self: center;
+}
+
+.rv-nav-spacer {
+  justify-self: end;
+  width: 1px;
+}
+
+/* ── Hero ── */
+.rv-hero {
+  text-align: center;
+  margin: 2rem auto 2.25rem;
+  max-width: 520px;
+}
+
+.rv-badges {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 1.25rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.rv-badge-dark {
+  background: #111;
+  color: #fff;
+  padding: 0.38rem 0.95rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+  border-radius: 999px 0 0 999px;
+}
+
+.rv-badge-light {
+  background: rgba(255, 255, 255, 0.65);
+  color: rgba(17, 17, 17, 0.55);
+  padding: 0.38rem 0.95rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  border-left: none;
+  border-radius: 0 999px 999px 0;
+}
+
+.rv-hero h1 {
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1.12;
+  margin: 0 0 0.75rem;
+}
+
+.rv-hero p {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: rgba(17, 17, 17, 0.5);
+  line-height: 1.6;
+}
+
+.rv-request-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 1rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  font-size: 0.75rem;
+  color: rgba(17, 17, 17, 0.5);
+}
+
+.rv-request-pill strong {
+  color: #111;
+  font-weight: 600;
+}
+
+/* ── Grid layout ── */
+.rv-grid {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 1rem;
+  align-items: start;
+}
+
+.rv-main-card {
+  background: rgba(255, 255, 255, 0.38);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  border-radius: 24px;
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  overflow: hidden;
+}
+
+.rv-form-inner {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  border-radius: 0 !important;
+  padding: 1.75rem !important;
+}
+
+.rv-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+/* ── Section labels ── */
+.rv-section-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(17, 17, 17, 0.35);
+  margin: 0 0 0.75rem;
+}
+
+.rv-divider {
+  height: 1px;
+  background: rgba(0, 0, 0, 0.05);
+  margin: 1.35rem 0;
+}
+
+/* ── Stars ── */
+.rv-stars-wrap {
+  text-align: center;
+}
+
+.rv-stars {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.rv-star {
+  background: none;
+  border: none;
+  padding: 0.15rem;
+  cursor: pointer;
+  color: rgba(17, 17, 17, 0.12);
+  transition: color 0.12s, transform 0.12s;
+  line-height: 0;
+}
+
+.rv-star svg {
+  width: 36px;
+  height: 36px;
+}
+
+.rv-star:hover,
+.rv-star.active {
+  color: #f59e0b;
+  transform: scale(1.08);
+}
+
+.rv-stars-label {
+  margin: 0.65rem 0 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: rgba(17, 17, 17, 0.45);
+  min-height: 1.25rem;
+}
+
+/* ── Tags ── */
+.rv-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.rv-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: rgba(255, 255, 255, 0.45);
+  font-size: 0.8125rem;
+  color: rgba(17, 17, 17, 0.55);
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+
+.rv-tag:hover {
+  background: rgba(255, 255, 255, 0.7);
+  color: #111;
+}
+
+.rv-tag.selected {
+  background: #111;
+  color: #fff;
+  border-color: #111;
+}
+
+.rv-tag span {
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
+/* ── Textarea ── */
+.rv-textarea {
+  min-height: 100px !important;
+}
+
+.rv-voice-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.rv-voice-btn {
+  padding: 0.35rem 0.5rem !important;
+}
+
+.rv-voice-hint {
+  font-size: 0.75rem;
+  color: rgba(17, 17, 17, 0.35);
+}
+
+.rv-submit-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1.35rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+/* ── Trust panel ── */
+.rv-trust-panel {
+  background: rgba(255, 255, 255, 0.38);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  border-radius: 20px;
+  padding: 1.25rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+}
+
+.rv-trust-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.rv-trust-name {
+  margin: 0.2rem 0 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #111;
+}
+
+.rv-trust-ring {
+  width: 56px !important;
+  height: 56px !important;
+  font-size: 1rem !important;
+  flex-shrink: 0;
+}
+
+.rv-trust-explain {
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: rgba(17, 17, 17, 0.5);
+  margin: 0 0 1rem;
+}
+
+.rv-trust-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.rv-trust-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8125rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+.rv-trust-row:last-child {
+  border-bottom: none;
+}
+
+.rv-trust-row-label {
+  color: rgba(17, 17, 17, 0.4);
+}
+
+.rv-trust-row-value {
+  font-weight: 600;
+  color: #111;
+}
+
+.rv-trust-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  font-size: 0.875rem;
+}
+
+.rv-trust-total strong {
+  font-size: 1.125rem;
+  color: #059669;
+}
+
+/* ── Flag panel ── */
+.rv-flag-panel {
+  background: rgba(255, 255, 255, 0.32);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 20px;
+  padding: 1.15rem 1.25rem;
+}
+
+.rv-flag-collapsed {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.rv-flag-hint {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: rgba(17, 17, 17, 0.4);
+}
+
+.rv-flag-trigger {
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: rgba(17, 17, 17, 0.55);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  padding: 0;
+  white-space: nowrap;
+}
+
+.rv-flag-trigger:hover {
+  color: #111;
+}
+
+.rv-flag-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.85rem;
+}
+
+.rv-flag-header .rv-section-label {
+  margin: 0;
+}
+
+.rv-flag-close {
+  background: rgba(255, 255, 255, 0.5);
+  border: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  color: rgba(17, 17, 17, 0.45);
+  display: grid;
+  place-items: center;
+  font-family: inherit;
+}
+
+.rv-flag-close:hover {
+  background: rgba(255, 255, 255, 0.85);
+  color: #111;
+}
+
+.rv-flag-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.rv-flag-option {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  background: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  font-size: 0.8125rem;
+  color: rgba(17, 17, 17, 0.65);
+  transition: all 0.15s;
+}
+
+.rv-flag-option:hover {
+  background: rgba(255, 255, 255, 0.65);
+}
+
+.rv-flag-option.selected {
+  border-color: rgba(17, 17, 17, 0.15);
+  background: rgba(255, 255, 255, 0.75);
+  color: #111;
+}
+
+.rv-flag-option input {
+  accent-color: #111;
+  flex-shrink: 0;
+}
+
+.rv-flag-submit {
+  width: 100%;
+  justify-content: center;
+}
+
+.rv-flag-done {
+  text-align: center;
+  padding: 1.5rem;
+}
+
+.rv-flag-done-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(5, 150, 105, 0.12);
+  color: #059669;
+  display: grid;
+  place-items: center;
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 0 auto 0.65rem;
+}
+
+.rv-flag-done p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: rgba(17, 17, 17, 0.55);
+}
+
+/* ── Success ── */
+.rv-success {
+  max-width: 420px;
+  margin: 8rem auto 0;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.42);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  border-radius: 24px;
+  padding: 2.5rem 2rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+}
+
+.rv-success-ring {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(5, 150, 105, 0.1);
+  border: 2px solid rgba(5, 150, 105, 0.25);
+  display: grid;
+  place-items: center;
+  margin: 0 auto 1.25rem;
+  color: #059669;
+}
+
+.rv-success-ring svg {
+  width: 28px;
+  height: 28px;
+}
+
+.rv-success h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  margin: 0 0 0.65rem;
+}
+
+.rv-success p {
+  margin: 0 0 1.75rem;
+  font-size: 0.9375rem;
+  color: rgba(17, 17, 17, 0.5);
+  line-height: 1.6;
+}
+
+.reviews-root .z-error {
+  max-width: 920px;
+  margin: 0 auto 1rem;
+}
+
+@media (max-width: 768px) {
+  .rv-page {
+    padding-inline: 1.25rem;
+  }
+
+  .rv-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .rv-sidebar {
+    order: -1;
+  }
+
+  .rv-trust-panel {
+    margin-bottom: 0.25rem;
+  }
+
+  .rv-star svg {
+    width: 32px;
+    height: 32px;
+  }
+
+  .rv-submit-row {
+    justify-content: stretch;
+  }
+
+  .rv-submit-row .z-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .rv-flag-collapsed {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
