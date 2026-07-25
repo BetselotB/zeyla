@@ -108,3 +108,7 @@ export function computeTrustScore(input: {
     total,
   };
 }
+
+// Per-module wire contracts live in their own files so that two owners editing
+// shared types are never editing the same lines. Add yours below.
+export * from "./identity-money.js";
