@@ -1,38 +1,57 @@
 import { useEffect, useState } from "react";
-import { verifyEscrowPayment } from "../api";
-import type { ContractStatus } from "../types";
+import { getContract } from "../api";
 
 type EscrowReturnScreenProps = {
-  txRef: string;
+  contractId: string;
 };
 
-type VerifyState = "checking" | "success" | "failure";
+type ReturnState = "checking" | "escrowed" | "unpaid" | "disputed" | "error";
 
-const FAILURE_STATUSES: ContractStatus[] = ["failed", "disputed"];
+const POLL_ATTEMPTS = 4;
+const POLL_DELAY_MS = 1500;
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
- * Handles Chapa's return_url. Reads tx_ref (already parsed by the parent from
- * the query string), asks our backend to verify the transaction server-side,
- * and shows a definitive success/failure state — never assumes success just
- * because the user was redirected back.
+ * Handles Chapa's return_url. The return_url itself is not proof of
+ * payment — the browser can arrive here before the webhook lands, or a user
+ * can navigate here by hand — so this polls GET /contracts/:id a few times
+ * rather than trusting the redirect. See docs/api/identity-money.md.
  */
-export function EscrowReturnScreen({ txRef }: EscrowReturnScreenProps) {
-  const [state, setState] = useState<VerifyState>("checking");
+export function EscrowReturnScreen({ contractId }: EscrowReturnScreenProps) {
+  const [state, setState] = useState<ReturnState>("checking");
 
   useEffect(() => {
     let isCancelled = false;
-    verifyEscrowPayment(txRef)
-      .then((result) => {
+
+    async function poll() {
+      for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt += 1) {
+        if (attempt > 0) await wait(POLL_DELAY_MS);
         if (isCancelled) return;
-        setState(FAILURE_STATUSES.includes(result.status) ? "failure" : "success");
-      })
-      .catch(() => {
-        if (!isCancelled) setState("failure");
-      });
+        try {
+          const contract = await getContract(contractId);
+          if (contract.status === "escrowed" || contract.status === "active" || contract.status === "completed") {
+            if (!isCancelled) setState("escrowed");
+            return;
+          }
+          if (contract.status === "disputed") {
+            if (!isCancelled) setState("disputed");
+            return;
+          }
+          // Still "awaiting_escrow" — keep polling until we run out of attempts.
+        } catch {
+          if (!isCancelled) setState("error");
+          return;
+        }
+      }
+      if (!isCancelled) setState("unpaid");
+    }
+
+    poll();
     return () => {
       isCancelled = true;
     };
-  }, [txRef]);
+  }, [contractId]);
 
   if (state === "checking") {
     return (
@@ -48,19 +67,30 @@ export function EscrowReturnScreen({ txRef }: EscrowReturnScreenProps) {
     );
   }
 
-  if (state === "failure") {
+  if (state === "escrowed") {
+    return (
+      <div className="payment__form">
+        <div className="payment__status">
+          <span className="payment__status-icon">✓</span>
+          <div>
+            <strong>Payment held in escrow</strong>
+            <p>Your funds are held securely and will be released once the work is complete.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (state === "disputed") {
     return (
       <div className="payment__form">
         <div className="payment__status">
           <span className="payment__status-icon payment__status-icon--warn">!</span>
           <div>
-            <strong>We couldn't confirm this payment</strong>
-            <p>Please try again. If you were charged, contact support before retrying.</p>
+            <strong>This booking needs attention</strong>
+            <p>Contact support — this contract has been flagged for manual review.</p>
           </div>
         </div>
-        <button className="payment__button" type="button" onClick={() => window.location.assign(window.location.pathname)}>
-          Try again
-        </button>
       </div>
     );
   }
@@ -68,12 +98,15 @@ export function EscrowReturnScreen({ txRef }: EscrowReturnScreenProps) {
   return (
     <div className="payment__form">
       <div className="payment__status">
-        <span className="payment__status-icon">✓</span>
+        <span className="payment__status-icon payment__status-icon--warn">!</span>
         <div>
-          <strong>Payment held in escrow</strong>
-          <p>Your funds are held securely and will be released once the work is complete.</p>
+          <strong>We couldn't confirm this payment yet</strong>
+          <p>If you completed checkout, this can take a moment to settle. Refresh to check again.</p>
         </div>
       </div>
+      <button className="payment__button" type="button" onClick={() => window.location.reload()}>
+        Refresh
+      </button>
     </div>
   );
 }

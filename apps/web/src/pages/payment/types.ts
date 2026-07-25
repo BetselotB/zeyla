@@ -1,15 +1,9 @@
 /**
- * Contract types for escrow funding / checkout.
- * Mirrors the `{ success, data, error }` envelope from apps/api/src/lib/respond.ts.
+ * Contract, escrow, and auth-user shapes are real — import them from
+ * @zeyla/shared (see docs/api/identity-money.md) rather than re-declaring.
+ * Only booking-summary data below is local: it's a deep-link contract from
+ * the (not-yet-built) discovery/booking flow, not a real API shape.
  */
-
-export type ApiResponse<T> = {
-  success: boolean;
-  data: T | null;
-  error: string | null;
-};
-
-export type ContractStatus = "awaiting_escrow" | "escrowed" | "active" | "completed" | "disputed" | "failed";
 
 export type BookingSummaryData = {
   providerId: string;
@@ -17,23 +11,4 @@ export type BookingSummaryData = {
   description: string;
   amount: number;
   currency: string;
-};
-
-export type EscrowCheckoutPayload = {
-  providerId: string;
-  description: string;
-  amount: number;
-  currency: string;
-  returnUrl: string;
-};
-
-export type EscrowCheckoutResponse = {
-  contractId: string;
-  /** Chapa's hosted checkout page — the frontend only ever redirects to this URL. */
-  checkoutUrl: string;
-};
-
-export type EscrowVerifyResponse = {
-  contractId: string;
-  status: ContractStatus;
 };

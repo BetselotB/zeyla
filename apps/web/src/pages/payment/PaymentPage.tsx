@@ -5,10 +5,12 @@ import "./PaymentPage.css";
 import type { BookingSummaryData } from "./types";
 
 /**
- * Chapa redirects back to this same page with ?tx_ref=... appended to
- * whatever return_url we gave it — so this one page doubles as both the
- * booking/checkout screen and the return_url handler, without needing a
- * second <Route> entry in the shared App.tsx.
+ * We pass our own return_url when funding a contract (see BookingSummary),
+ * pointing back at this same page with ?contract=<id> appended — so this one
+ * page doubles as both the booking/checkout screen and the return_url
+ * handler, without needing a second <Route> entry in the shared App.tsx. The
+ * backend's own default return_url would land on /payment/return instead;
+ * we override it specifically to avoid needing that extra route.
  *
  * TODO(daniel/discovery): booking details currently come from the URL query
  * string (providerId, providerName, description, amount, currency) as a
@@ -17,16 +19,16 @@ import type { BookingSummaryData } from "./types";
  */
 export function PaymentPage() {
   const params = new URLSearchParams(window.location.search);
-  const txRef = params.get("tx_ref");
+  const contractId = params.get("contract");
 
-  if (txRef) {
+  if (contractId) {
     return (
       <main className="payment">
         <header className="payment__topbar">
           <span className="payment__wordmark">Zeyla</span>
         </header>
         <section className="payment__card">
-          <EscrowReturnScreen txRef={txRef} />
+          <EscrowReturnScreen contractId={contractId} />
         </section>
       </main>
     );
