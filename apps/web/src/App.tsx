@@ -17,10 +17,6 @@ export default function App() {
       <header className="brand">
         <p className="mark">Zeyla</p>
         <h1>Trusted local services</h1>
-        <p className="lede">
-          Hackathon starter — escrow + trust score first. Everything else can be
-          simulated for the demo.
-        </p>
       </header>
 
       <AppNav />
