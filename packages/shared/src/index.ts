@@ -1,5 +1,7 @@
 /** Shared domain types — keep API + web in sync */
 
+export * from "./marketplace.js";
+
 /** Every Zeyla endpoint answers in this envelope. See .cursorrules. */
 export interface ApiResponse<T = unknown> {
   success: boolean;
