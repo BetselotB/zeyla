@@ -2,6 +2,7 @@
 
 export * from "./marketplace.js";
 export * from "./realtime.js";
+export * from "./trust.js";
 
 /** Every Zeyla endpoint answers in this envelope. See .cursorrules. */
 export interface ApiResponse<T = unknown> {
@@ -54,6 +55,18 @@ export const TRUST_SCORE = {
   PER_FLAG: -5,
   FLOOR: 0,
 } as const;
+
+/**
+ * Highest reachable score: 50 base + 20 completions + 20 reviews + 10 KYC +
+ * 5 Firecrawl = 105. The formula has no 100 cap, so UI that renders a
+ * percentage bar must divide by this, not by 100.
+ */
+export const TRUST_SCORE_MAX =
+  TRUST_SCORE.BASE +
+  TRUST_SCORE.COMPLETED_CAP +
+  TRUST_SCORE.REVIEW_MAX +
+  TRUST_SCORE.KYC_VERIFIED +
+  TRUST_SCORE.FIRECRAWL_MATCH;
 
 export function computeTrustScore(input: {
   completedContracts: number;
