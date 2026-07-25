@@ -5,16 +5,14 @@ const CODE_LENGTH = 6;
 const RESEND_COOLDOWN_SECONDS = 30;
 
 type OtpStepProps = {
-  phone: string;
   isSubmitting: boolean;
   isResending: boolean;
   error: string | null;
   onSubmit: (code: string) => void;
   onResend: () => void;
-  onChangeNumber: () => void;
 };
 
-export function OtpStep({ phone, isSubmitting, isResending, error, onSubmit, onResend, onChangeNumber }: OtpStepProps) {
+export function OtpStep({ isSubmitting, isResending, error, onSubmit, onResend }: OtpStepProps) {
   const [values, setValues] = useState<string[]>(Array(CODE_LENGTH).fill(""));
   const inputsRef = useRef<Array<HTMLInputElement | null>>([]);
   const { remaining, restart } = useCountdown(RESEND_COOLDOWN_SECONDS);
@@ -71,43 +69,42 @@ export function OtpStep({ phone, isSubmitting, isResending, error, onSubmit, onR
 
   return (
     <div className="onboarding__form">
-      <p className="onboarding__hint">Enter the 6-digit code sent to {phone}.</p>
-      <div className="onboarding__otp" onPaste={handlePaste}>
-        {values.map((value, index) => (
-          <input
-            key={index}
-            ref={(el) => {
-              inputsRef.current[index] = el;
-            }}
-            className="onboarding__otp-box"
-            inputMode="numeric"
-            maxLength={1}
-            value={value}
-            disabled={isSubmitting}
-            onChange={(event) => handleChange(index, event.target.value)}
-            onKeyDown={(event) => handleKeyDown(index, event)}
-            aria-label={`Digit ${index + 1}`}
-          />
-        ))}
+      <div className="onboarding__field">
+        <span>Verification code</span>
+        <div className="onboarding__otp" onPaste={handlePaste}>
+          {values.map((value, index) => (
+            <input
+              key={index}
+              ref={(el) => {
+                inputsRef.current[index] = el;
+              }}
+              className="onboarding__otp-box"
+              inputMode="numeric"
+              maxLength={1}
+              value={value}
+              disabled={isSubmitting}
+              onChange={(event) => handleChange(index, event.target.value)}
+              onKeyDown={(event) => handleKeyDown(index, event)}
+              aria-label={`Digit ${index + 1}`}
+            />
+          ))}
+        </div>
       </div>
+
       {error && (
         <p className="onboarding__notice onboarding__notice--error" role="alert">
           {error}
         </p>
       )}
-      <div className="onboarding__actions">
-        <button
-          className="onboarding__button onboarding__button--secondary"
-          type="button"
-          disabled={remaining > 0 || isResending}
-          onClick={handleResend}
-        >
-          {isResending ? "Resending…" : remaining > 0 ? `Resend code in ${remaining}s` : "Resend code"}
-        </button>
-        <button className="onboarding__button onboarding__button--secondary" type="button" onClick={onChangeNumber}>
-          Change number
-        </button>
-      </div>
+
+      <button
+        className="onboarding__button onboarding__button--secondary"
+        type="button"
+        disabled={remaining > 0 || isResending}
+        onClick={handleResend}
+      >
+        {isResending ? "Resending…" : remaining > 0 ? `Resend code in ${remaining}s` : "Resend code"}
+      </button>
     </div>
   );
 }

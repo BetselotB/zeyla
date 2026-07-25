@@ -12,6 +12,20 @@ import type { ProviderProfilePayload } from "./types";
 
 type Step = "phone" | "otp" | "email" | "kycUpload" | "kycStatus" | "providerPrompt" | "providerProfile" | "done";
 
+/** Phase 0 = account, 1 = identity, 2 = profile. Drives the badge and rail. */
+const PHASE_BY_STEP: Record<Step, number> = {
+  phone: 0,
+  otp: 0,
+  email: 0,
+  kycUpload: 1,
+  kycStatus: 1,
+  providerPrompt: 2,
+  providerProfile: 2,
+  done: 2,
+};
+
+const PHASE_LABELS = ["Account", "Identity", "Profile"];
+
 export function OnboardingPage() {
   const [step, setStep] = useState<Step>("phone");
   const [phone, setPhone] = useState("");
@@ -99,54 +113,97 @@ export function OnboardingPage() {
     }
   };
 
-  // Phase drives the slim dot indicator only — no labels are rendered.
-  const phaseByStep: Record<Step, number> = {
-    phone: 0,
-    otp: 0,
-    email: 0,
-    kycUpload: 1,
-    kycStatus: 1,
-    providerPrompt: 2,
-    providerProfile: 2,
-    done: 2,
-  };
-  const phase = phaseByStep[step];
+  const phase = PHASE_BY_STEP[step];
 
-  const cardHeading: Partial<Record<Step, string>> = {
-    phone: "Enter your phone number",
-    otp: "Verify your number",
-    email: "Add your email",
-    kycUpload: "Verify your identity",
-    providerPrompt: "Offer services on Zeyla?",
-    providerProfile: "Set up your provider profile",
+  const kycCopy: Record<KycStatus, { title: string; subtitle: string }> = {
+    verified: { title: "You're verified", subtitle: "Your documents are on file and your account is ready to use." },
+    manual_review: { title: "Documents received", subtitle: "We're reviewing your ID and selfie. This usually only takes a moment." },
+    pending: { title: "Documents received", subtitle: "We're reviewing your ID and selfie. This usually only takes a moment." },
+    rejected: { title: "We couldn't verify those", subtitle: "Your ID or selfie wasn't clear enough to read. Please upload them again." },
+  };
+
+  const copy: Record<Step, { title: string; subtitle: string }> = {
+    phone: {
+      title: "Let's get you started",
+      subtitle: "Enter your mobile number and we'll text you a code to verify it.",
+    },
+    otp: {
+      title: "Check your messages",
+      subtitle: `We sent a 6-digit code to ${phone}. Enter it below to continue.`,
+    },
+    email: {
+      title: "Where do receipts go?",
+      subtitle: "We need an email address to send you receipts when you pay for a booking.",
+    },
+    kycUpload: {
+      title: "Verify your identity",
+      subtitle: "Add a government-issued ID and a selfie. This is what keeps Zeyla trusted for everyone.",
+    },
+    kycStatus: kycCopy[kycStatus],
+    providerPrompt: {
+      title: "Want to offer services?",
+      subtitle: "Set up a provider profile to start receiving job requests, or skip and do it later.",
+    },
+    providerProfile: {
+      title: "Set up your profile",
+      subtitle: "Tell customers what you do, where you work, and what you charge.",
+    },
+    done: {
+      title: "You're all set",
+      subtitle: "You can now find trusted providers nearby and pay safely through escrow.",
+    },
   };
 
   return (
     <main className="onboarding">
-      <header className="onboarding__topbar">
-        <span className="onboarding__wordmark">Zeyla</span>
+      <nav className="onboarding__nav">
+        {step === "otp" && (
+          <button className="onboarding__nav-action" type="button" onClick={() => setStep("phone")}>
+            ‹ Back
+          </button>
+        )}
+        {step === "providerProfile" && (
+          <button className="onboarding__nav-action" type="button" onClick={() => setStep("providerPrompt")}>
+            ‹ Back
+          </button>
+        )}
+        <span className="onboarding__brand">
+          <span className="onboarding__logo">Z</span>
+          <span className="onboarding__wordmark">Zeyla</span>
+        </span>
+      </nav>
+
+      <header className="onboarding__hero">
+        <div className="onboarding__badges">
+          <span className="onboarding__badge">{PHASE_LABELS[phase]}</span>
+          <span className="onboarding__badge onboarding__badge--ghost">Step {phase + 1} of 3</span>
+        </div>
+        <h1 className="onboarding__title">{copy[step].title}</h1>
+        <p className="onboarding__subtitle">{copy[step].subtitle}</p>
+        <div
+          className="onboarding__rail"
+          role="progressbar"
+          aria-valuemin={1}
+          aria-valuemax={3}
+          aria-valuenow={phase + 1}
+          aria-label="Onboarding progress"
+        >
+          {[0, 1, 2].map((segment) => (
+            <span key={segment} className={segment <= phase ? "is-filled" : ""} />
+          ))}
+        </div>
       </header>
 
-      <div className="onboarding__dots" role="progressbar" aria-valuemin={1} aria-valuemax={3} aria-valuenow={phase + 1} aria-label="Onboarding progress">
-        {[0, 1, 2].map((dot) => (
-          <span key={dot} className={`onboarding__dot ${dot === phase ? "is-active" : dot < phase ? "is-complete" : ""}`} />
-        ))}
-      </div>
-
       <section className="onboarding__card">
-        {cardHeading[step] && <h2 className="onboarding__card-heading">{cardHeading[step]}</h2>}
-
         {step === "phone" && <PhoneStep isSubmitting={isSubmitting} onSubmit={handlePhoneSubmit} />}
 
         {step === "otp" && (
           <OtpStep
-            phone={phone}
             isSubmitting={isSubmitting}
             isResending={isResending}
             error={error}
             onSubmit={handleOtpSubmit}
             onResend={handleResend}
-            onChangeNumber={() => setStep("phone")}
           />
         )}
 
@@ -157,23 +214,17 @@ export function OnboardingPage() {
         {step === "kycUpload" && <KycUploadStep isSubmitting={isSubmitting} error={error} onSubmit={handleKycSubmit} />}
 
         {step === "kycStatus" && (
-          <KycStatusScreen
-            status={kycStatus}
-            onResubmit={() => setStep("kycUpload")}
-            onContinue={() => setStep("providerPrompt")}
-          />
+          <KycStatusScreen status={kycStatus} onResubmit={() => setStep("kycUpload")} onContinue={() => setStep("providerPrompt")} />
         )}
 
         {step === "providerPrompt" && (
           <div className="onboarding__form">
-            <div className="onboarding__actions">
-              <button className="onboarding__button" type="button" onClick={() => setStep("providerProfile")}>
-                Set up provider profile
-              </button>
-              <button className="onboarding__button onboarding__button--secondary" type="button" onClick={() => setStep("done")}>
-                Not now
-              </button>
-            </div>
+            <button className="onboarding__button" type="button" onClick={() => setStep("providerProfile")}>
+              Set up provider profile
+            </button>
+            <button className="onboarding__button onboarding__button--secondary" type="button" onClick={() => setStep("done")}>
+              Not now
+            </button>
           </div>
         )}
 
@@ -190,14 +241,15 @@ export function OnboardingPage() {
           <div className="onboarding__form">
             <div className="onboarding__status">
               <span className="onboarding__status-icon">✓</span>
-              <div>
-                <strong>You're all set</strong>
-                <p className="onboarding__hint">You can now discover services and fund work through escrow.</p>
-              </div>
             </div>
+            <a className="onboarding__button" href="/discovery">
+              Find services near you
+            </a>
           </div>
         )}
       </section>
+
+      <p className="onboarding__footnote">Encrypted · Escrow protected · Addis Ababa</p>
     </main>
   );
 }

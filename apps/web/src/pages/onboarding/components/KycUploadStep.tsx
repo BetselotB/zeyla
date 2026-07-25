@@ -16,7 +16,6 @@ export function KycUploadStep({ isSubmitting, error, onSubmit }: KycUploadStepPr
 
   return (
     <div className="onboarding__form">
-      <p className="onboarding__hint">Upload a government-issued ID and take a selfie to verify your identity.</p>
       <IdCaptureField label="Government-issued ID" onCapture={setIdDocument} />
       <SelfieCaptureField onCapture={setSelfie} />
       {error && (

@@ -72,8 +72,6 @@ export function ProviderProfileForm({ isSubmitting, error, onSubmit, onSkip }: P
 
   return (
     <form className="onboarding__form" onSubmit={handleSubmit}>
-      <p className="onboarding__hint">Set up your provider profile so customers can find and book you.</p>
-
       <div className="onboarding__field">
         <span>Profile photo</span>
         <div className="onboarding__photo-picker">

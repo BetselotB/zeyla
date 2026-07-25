@@ -7,55 +7,35 @@ type KycStatusScreenProps = {
 };
 
 /**
- * Neutral, honest copy only. "Verified" here means the demo auto-verifies
- * submitted documents (see `autoVerified` in the real API response) — it
- * never implies a live face-match, confidence score, or liveness check
- * took place.
+ * Outcome of a KYC submission. The heading and supporting copy live in the
+ * page hero (OnboardingPage) so there's one source of truth per status; this
+ * only renders the badge and the action.
+ *
+ * "Verified" means the demo auto-verifies submitted documents (see
+ * `autoVerified` on the API response) — never present it as a completed face
+ * match or liveness check.
  */
 export function KycStatusScreen({ status, onResubmit, onContinue }: KycStatusScreenProps) {
-  if (status === "manual_review" || status === "pending") {
-    return (
-      <div className="onboarding__form">
-        <div className="onboarding__status">
-          <span className="onboarding__status-icon">i</span>
-          <div>
-            <strong>Documents received</strong>
-            <p className="onboarding__hint">Your identity documents are under review. This usually only takes a moment.</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (status === "rejected") {
-    return (
-      <div className="onboarding__form">
-        <div className="onboarding__status">
-          <span className="onboarding__status-icon onboarding__status-icon--warn">!</span>
-          <div>
-            <strong>We couldn't verify your documents</strong>
-            <p className="onboarding__hint">Please make sure your ID and selfie are clear, then try again.</p>
-          </div>
-        </div>
-        <button className="onboarding__button" type="button" onClick={onResubmit}>
-          Resubmit documents
-        </button>
-      </div>
-    );
-  }
+  const isRejected = status === "rejected";
+  const isVerified = status === "verified";
 
   return (
     <div className="onboarding__form">
       <div className="onboarding__status">
-        <span className="onboarding__status-icon">✓</span>
-        <div>
-          <strong>Identity verified</strong>
-          <p className="onboarding__hint">You can now use Zeyla to book or offer services.</p>
-        </div>
+        <span className={`onboarding__status-icon ${isRejected ? "onboarding__status-icon--warn" : ""}`}>
+          {isRejected ? "!" : isVerified ? "✓" : "…"}
+        </span>
       </div>
-      <button className="onboarding__button" type="button" onClick={onContinue}>
-        Continue
-      </button>
+
+      {isRejected ? (
+        <button className="onboarding__button" type="button" onClick={onResubmit}>
+          Upload documents again
+        </button>
+      ) : (
+        <button className="onboarding__button" type="button" onClick={onContinue}>
+          Continue
+        </button>
+      )}
     </div>
   );
 }

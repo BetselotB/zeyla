@@ -31,7 +31,6 @@ export function EmailStep({ isSubmitting, error, onSubmit, onSkip }: EmailStepPr
 
   return (
     <form className="onboarding__form" onSubmit={handleSubmit}>
-      <p className="onboarding__hint">We'll only use this to send payment receipts.</p>
       <label className="onboarding__field">
         <span>Email address</span>
         <input

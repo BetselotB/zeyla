@@ -103,7 +103,12 @@ export function SelfieCaptureField({ onCapture }: SelfieCaptureFieldProps) {
           <div className="onboarding__camera-preview">
             <video ref={videoRef} muted playsInline />
           </div>
-          <button className="onboarding__button" type="button" disabled={!isCameraReady} onClick={capture}>
+          <button
+            className="onboarding__button onboarding__button--plain"
+            type="button"
+            disabled={!isCameraReady}
+            onClick={capture}
+          >
             Capture selfie
           </button>
         </>
