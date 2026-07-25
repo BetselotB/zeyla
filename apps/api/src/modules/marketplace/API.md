@@ -142,8 +142,174 @@ query parameters produce a real `distanceMeters`; without them it is `0`.
 (All `ProviderSummary` fields listed above are present; trimmed here for
 brevity.)
 
+---
+
+## POST /api/marketplace/requests
+
+Creates a service request. Requires `x-user-id`. → **201**
+
+```json
+{
+  "category": "plumber",
+  "description": "Kitchen pipe burst, water everywhere",
+  "urgency": "emergency",
+  "lat": 8.995,
+  "lng": 38.787,
+  "addressLabel": "Bole Medhanialem, behind the church",
+  "radiusMeters": 3000
+}
+```
+
+`description`, `addressLabel` optional. `urgency` is one of `low`, `normal`
+(default), `high`, `emergency`. `radiusMeters` defaults to 5000 and is the
+default fan-out radius for this request.
+
+```json
+{
+  "success": true,
+  "data": {
+    "request": {
+      "id": "9f0c...",
+      "userId": "1111...",
+      "category": "plumber",
+      "description": "Kitchen pipe burst, water everywhere",
+      "urgency": "emergency",
+      "lat": 8.995,
+      "lng": 38.787,
+      "addressLabel": "Bole Medhanialem, behind the church",
+      "radiusMeters": 3000,
+      "status": "pending",
+      "voiceTranscript": null,
+      "nlp": null,
+      "createdAt": "2026-07-25T14:31:02.881Z"
+    }
+  },
+  "error": null
+}
+```
+
+## GET /api/marketplace/requests
+
+`{ "requests": ServiceRequestDto[] }` — the caller's own requests, newest first.
+
+## GET /api/marketplace/requests/:id
+
+`{ "request": ServiceRequestDto, "pings": PingDto[] }`. Someone else's request
+returns 404, not 403.
+
+## POST /api/marketplace/requests/:id/pings
+
+Fans out to nearby providers and pushes `ping:incoming` into each provider's
+socket room. Requires `x-user-id` (must own the request). → **201**
+
+```json
+{
+  "providerIds": ["6b1d..."],
+  "maxProviders": 5,
+  "minTrust": 0,
+  "radiusMeters": 3000,
+  "onlineOnly": true,
+  "expiresInSeconds": 300
+}
+```
+
+Every field is optional. Send `providerIds` to ping an explicit shortlist the
+customer tapped in the UI; omit it and the API picks the best `maxProviders`
+matches — same category, inside the radius, above `minTrust`, online by default,
+ordered by trust then distance.
+
+```json
+{
+  "success": true,
+  "data": {
+    "request": { "...": "ServiceRequestDto, now status=pinged" },
+    "pings": [
+      {
+        "id": "7d2f...",
+        "requestId": "9f0c...",
+        "providerId": "6b1d...",
+        "status": "sent",
+        "distanceMeters": 322,
+        "trustScoreAtPing": 78.5,
+        "sentAt": "2026-07-25T14:31:03.412Z",
+        "seenAt": null,
+        "respondedAt": null,
+        "expiresAt": "2026-07-25T14:36:03.412Z"
+      }
+    ],
+    "pingedProviderIds": ["6b1d..."],
+    "skipped": [{ "providerId": "aaaa...", "reason": "already_pinged" }]
+  },
+  "error": null
+}
+```
+
+Calling it twice never double-pings a provider: `pings` comes back empty and the
+already-contacted ones appear in `skipped` (`already_pinged` or
+`unknown_provider`). 409 `request_not_open` once the request is accepted.
+
+## GET /api/marketplace/pings
+
+Provider inbox. Optional `status` (`sent`/`seen`/`accepted`/`declined`) and
+`limit` (default 20).
+
+```json
+{
+  "success": true,
+  "data": {
+    "pings": [
+      {
+        "id": "7d2f...",
+        "requestId": "9f0c...",
+        "providerId": "6b1d...",
+        "status": "sent",
+        "distanceMeters": 322,
+        "trustScoreAtPing": 78.5,
+        "sentAt": "2026-07-25T14:31:03.412Z",
+        "seenAt": null,
+        "respondedAt": null,
+        "expiresAt": "2026-07-25T14:36:03.412Z",
+        "request": { "...": "ServiceRequestDto" },
+        "customerName": "Sara Bekele"
+      }
+    ]
+  },
+  "error": null
+}
+```
+
+## POST /api/marketplace/pings/:id/respond
+
+```json
+{ "action": "accepted" }
+```
+
+`action` is `seen`, `accepted` or `declined`. Only the pinged provider may call
+it; anyone else gets 404. Accepting sets the request to `accepted` and emits
+`ping:answered` to the customer.
+
+```json
+{
+  "success": true,
+  "data": {
+    "ping": { "...": "PingDto, status=accepted" },
+    "request": { "...": "ServiceRequestDto, status=accepted" }
+  },
+  "error": null
+}
+```
+
+- 409 `ping_already_answered` — already accepted or declined.
+- 409 `ping_expired` — accepting after `expiresAt`.
+- 409 `request_not_open` — someone else already took the job.
+
+**Handover to escrow:** accepting does *not* create a contract. The customer
+side calls the escrow module once a provider accepts; that module owns
+`contracts` and `escrow_ledger`.
+
 ## Types
 
 TypeScript types are exported from `@zeyla/shared` — import them instead of
 re-declaring: `ProviderSummary`, `ProviderDetail`, `ProviderSearchQuery`,
-`ProviderSearchResult`, `ServiceCategory`, `Urgency`.
+`ProviderSearchResult`, `ServiceRequestDto`, `PingDto`, `ProviderPingDto`,
+`PingFanoutResult`, `ServiceCategory`, `Urgency`.
