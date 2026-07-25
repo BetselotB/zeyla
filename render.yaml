@@ -1,0 +1,66 @@
+# Render Blueprint — wire up during Hrs 0–2 of the hackathon.
+# Docs: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: zeyla-api
+    runtime: node
+    plan: starter
+    rootDir: apps/api
+    buildCommand: pnpm install --frozen-lockfile && pnpm build
+    startCommand: pnpm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: zeyla-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: zeyla-redis
+          type: redis
+          property: connectionString
+      - key: CORS_ORIGIN
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: TELEBIRR_API_KEY
+        sync: false
+      - key: FAL_KEY
+        sync: false
+
+  - type: web
+    name: zeyla-web
+    runtime: static
+    rootDir: apps/web
+    buildCommand: pnpm install --frozen-lockfile && pnpm build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        sync: false
+      - key: VITE_SUPABASE_URL
+        sync: false
+      - key: VITE_SUPABASE_ANON_KEY
+        sync: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+  - type: redis
+    name: zeyla-redis
+    plan: starter
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList: []
+
+databases:
+  - name: zeyla-postgres
+    plan: basic-256mb
+    databaseName: zeyla
+    user: zeyla
+    # Enable PostGIS via Render dashboard / SQL after first provision:
+    # CREATE EXTENSION IF NOT EXISTS postgis;

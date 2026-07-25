@@ -1,0 +1,37 @@
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: zeyla-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: zeyla
+      POSTGRES_PASSWORD: zeyla
+      POSTGRES_DB: zeyla
+    volumes:
+      - zeyla_pg_data:/var/lib/postgresql/data
+      - ./apps/api/db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zeyla -d zeyla"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: zeyla-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - zeyla_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  zeyla_pg_data:
+  zeyla_redis_data:
