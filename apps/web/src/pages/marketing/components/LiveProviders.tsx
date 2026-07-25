@@ -53,13 +53,7 @@ export function LiveProviders() {
           <article key={provider.id} className="zm-live-card">
             <div>
               <p className="zm-live-name">{provider.name ?? "Zeyla provider"}</p>
-              <p className="zm-live-meta">
-                {CATEGORY_LABELS[provider.category as keyof typeof CATEGORY_LABELS] ??
-                  provider.category}
-                {" · "}
-                {(provider.distanceMeters / 1000).toFixed(1)} km
-                {provider.completedContracts > 0 && ` · ${provider.completedContracts} jobs`}
-              </p>
+              <p className="zm-live-meta">{describe(provider)}</p>
             </div>
             <span className={`zm-live-score${provider.trustScore < 70 ? " mid" : ""}`}>
               {Math.round(provider.trustScore)}
@@ -68,9 +62,18 @@ export function LiveProviders() {
         ))}
       </div>
       <p className="zm-note">
-        {state.total} provider{state.total === 1 ? "" : "s"} within 50 km of Meskel
-        Square right now. Scores are live from the trust engine.
+        {`${state.total} ${state.total === 1 ? "provider" : "providers"} within 50 km of Meskel Square right now. Scores are live from the trust engine.`}
       </p>
     </>
   );
+}
+
+function describe(provider: ProviderSummary): string {
+  const category =
+    CATEGORY_LABELS[provider.category as keyof typeof CATEGORY_LABELS] ?? provider.category;
+  const parts = [category, `${(provider.distanceMeters / 1000).toFixed(1)} km`];
+  if (provider.completedContracts > 0) {
+    parts.push(`${provider.completedContracts} job${provider.completedContracts === 1 ? "" : "s"}`);
+  }
+  return parts.join(" · ");
 }

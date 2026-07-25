@@ -66,7 +66,12 @@ export async function transcribeWithAddis(
   const language = sttLanguageCode(input.language);
 
   const form = new FormData();
-  form.append("audio", new Blob([audio.bytes], { type: audio.mimeType }), audio.filename);
+  // Buffer avoids TS5.7 BlobPart vs Uint8Array<ArrayBufferLike> mismatch.
+  form.append(
+    "audio",
+    new Blob([Buffer.from(audio.bytes)], { type: audio.mimeType }),
+    audio.filename,
+  );
   form.append("request_data", JSON.stringify({ language_code: language }));
 
   const controller = new AbortController();
