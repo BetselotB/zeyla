@@ -1,5 +1,16 @@
-import type { ServiceRequestDto, Urgency, VoiceParseResult } from "@zeyla/shared";
+import type {
+  ActiveJobSummary,
+  ServiceRequestDto,
+  Urgency,
+  VoiceParseResult,
+} from "@zeyla/shared";
 import { query } from "../../db/client.js";
+import {
+  disputeContractForCancellation,
+  paymentSummariesByRequest,
+} from "../escrow/service.js";
+import { notify } from "../notifications/notifications.service.js";
+import { releaseFromJob } from "./availability.service.js";
 import type { Actor } from "./lib/actor.js";
 import { ApiError } from "./lib/errors.js";
 
@@ -22,6 +33,9 @@ export interface RequestRow {
 const REQUEST_COLUMNS = `
   id, user_id, category, description, urgency, lat, lng, address_label,
   radius_meters, status, voice_transcript, nlp, created_at`;
+
+/** The same list, qualified, for the joins below. */
+const R_REQUEST_COLUMNS = REQUEST_COLUMNS.replace(/(\w+)/g, "r.$1");
 
 export function toRequestDto(row: RequestRow): ServiceRequestDto {
   return {
@@ -113,6 +127,128 @@ export async function listServiceRequests(
     [actor.userId, limit],
   );
   return result.rows.map(toRequestDto);
+}
+
+/** Statuses that still count as "this job is not over yet". */
+const OPEN_STATUSES = ["pending", "pinged", "accepted", "in_progress"] as const;
+
+/**
+ * Close the marketplace request behind a contract that has just been paid out.
+ *
+ * Escrow owns the money and stops at `completed`; the request it was raised
+ * against is this module's row to close. Without this the customer would stay
+ * locked out of booking again by a job they had already finished and paid for.
+ *
+ * Guarded on the current status so a duplicate event, or a request the
+ * customer cancelled in the meantime, cannot reopen or overwrite anything.
+ */
+export async function completeRequestForContract(requestId: string): Promise<void> {
+  await query(
+    `UPDATE service_requests
+        SET status = 'completed', updated_at = now()
+      WHERE id = $1::uuid
+        AND status = ANY($2::request_status[])`,
+    [requestId, OPEN_STATUSES],
+  );
+}
+
+/**
+ * The one job this customer already has in flight, if any.
+ *
+ * Discovery calls this before letting anyone start a second request. Newest
+ * first, because a customer who somehow ended up with two open rows should be
+ * pointed at the one they were just looking at.
+ */
+export async function getActiveJob(actor: Actor): Promise<ActiveJobSummary | null> {
+  const result = await query<
+    RequestRow & { provider_id: string | null; provider_name: string | null }
+  >(
+    `SELECT ${R_REQUEST_COLUMNS},
+            p.provider_id,
+            u.name AS provider_name
+       FROM service_requests r
+       LEFT JOIN pings p
+              ON p.request_id = r.id AND p.status = 'accepted'
+       LEFT JOIN users u ON u.id = p.provider_id
+      WHERE r.user_id = $1::uuid
+        AND r.status = ANY($2::request_status[])
+        -- Belt and braces: if the event that closes the request above was ever
+        -- lost, a finished contract still must not lock the customer out.
+        AND NOT EXISTS (
+              SELECT 1 FROM contracts c
+               WHERE c.request_id = r.id AND c.status = 'completed'
+            )
+      ORDER BY r.created_at DESC
+      LIMIT 1`,
+    [actor.userId, OPEN_STATUSES],
+  );
+
+  const row = result.rows[0];
+  if (!row) return null;
+
+  const request = toRequestDto(row);
+  const payments = await paymentSummariesByRequest({
+    requestIds: [request.id],
+    partyId: actor.userId,
+  });
+  const payment = payments.get(request.id) ?? null;
+
+  return {
+    request,
+    providerId: row.provider_id,
+    providerName: row.provider_name,
+    payment,
+    isPaid: payment?.isPaid === true,
+    isBlocking: true,
+  };
+}
+
+/**
+ * Customer abandons their own request.
+ *
+ * Allowed at any point before completion, but the money decides what
+ * "cancelled" means: an unfunded request just closes, while a funded one goes
+ * to dispute so the held ETB is resolved deliberately rather than vanishing
+ * with the request. A completed job cannot be cancelled — it is reviewed.
+ */
+export async function cancelOwnRequest(
+  actor: Actor,
+  requestId: string,
+): Promise<{ request: ServiceRequestDto }> {
+  const existing = await getOwnedServiceRequest(actor, requestId);
+
+  if (existing.status === "completed") {
+    throw ApiError.conflict("completed_job_cannot_be_cancelled");
+  }
+  if (existing.status === "cancelled") return { request: existing };
+
+  await disputeContractForCancellation(
+    requestId,
+    actor.userId,
+    "customer cancelled the job",
+  );
+  const request = await setRequestStatus(requestId, "cancelled");
+
+  // Whoever took it is free to work again, and deserves to be told why the job
+  // disappeared from their inbox.
+  const accepted = await query<{ provider_id: string }>(
+    `SELECT provider_id FROM pings
+      WHERE request_id = $1::uuid AND status = 'accepted'`,
+    [requestId],
+  );
+
+  for (const { provider_id: providerId } of accepted.rows) {
+    await releaseFromJob(providerId);
+    await notify({
+      userId: providerId,
+      type: "ping_declined",
+      title: "Customer cancelled the job",
+      body: "This request is closed. Any funded payment has been placed in dispute.",
+      data: { requestId, userId: actor.userId },
+    });
+  }
+
+  return { request };
 }
 
 export async function setRequestStatus(

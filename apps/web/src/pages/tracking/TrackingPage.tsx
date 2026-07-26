@@ -4,11 +4,13 @@ import { useAuth } from "../../auth";
 import { JobPaymentPanel, useJobPayment, type PaymentViewer } from "../../escrow";
 import { getProvider, getRequest } from "../discovery/lib/api.js";
 import type { ProviderSummary, ServiceRequestDto } from "../discovery/lib/types.js";
+import { AppNav } from "../../components/AppNav.js";
+import { cancelRequest } from "../../jobs/useActiveJob.js";
+import "../../jobs/jobs.css";
 import { LiveMap, useSocketLocation } from "./components/LiveMap.js";
 import { MapLegend } from "./components/MapLegend.js";
 import { ProviderInfo } from "./components/ProviderInfo.js";
 import { StatusTimeline } from "./components/StatusTimeline.js";
-import { TrackingNav } from "./components/TrackingNav.js";
 import { AnimatedMeshBg } from "../discovery/components/AnimatedMeshBg.js";
 import "../discovery/discovery.css";
 import "./tracking.css";
@@ -37,6 +39,9 @@ export function TrackingPage() {
   const [provider, setProvider] = useState<ProviderSummary | null>(null);
   const [request, setRequest] = useState<ServiceRequestDto | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   const {
     payment,
@@ -122,11 +127,34 @@ export function TrackingPage() {
     providerId ? `&providerId=${providerId}` : ""
   }`;
 
+  async function handleCancel() {
+    if (isCancelling) return;
+    setIsCancelling(true);
+    setCancelError(null);
+    try {
+      const updated = await cancelRequest(requestId);
+      setRequest(updated);
+      setConfirmCancel(false);
+      navigate("/discovery", { replace: true });
+    } catch (err) {
+      setCancelError(
+        err instanceof Error && err.message === "completed_job_cannot_be_cancelled"
+          ? "This job is already finished — leave a review instead."
+          : "We couldn't cancel this job. Try again.",
+      );
+    } finally {
+      setIsCancelling(false);
+    }
+  }
+
   return (
     <div className="tracking-root">
       <AnimatedMeshBg />
       <div className="tr-page z-page-enter-stagger">
-        <TrackingNav />
+        <AppNav
+          backTo={viewer === "provider" ? "/provider" : "/discovery"}
+          backLabel={viewer === "provider" ? "Dashboard" : "Find help"}
+        />
 
         <header className="tr-hero">
           <div className="tr-badges">
@@ -187,13 +215,13 @@ export function TrackingPage() {
             <StatusTimeline currentStep={currentStep} isDeclined={isDeclined} />
 
             <div className="tr-actions-card">
-              {(isCompleted || isPaid) && (
+              {isCompleted && (
                 <button
                   type="button"
-                  className="z-btn z-btn-ghost"
+                  className="z-btn z-btn-primary"
                   onClick={() => navigate(reviewsUrl)}
                 >
-                  {isCompleted ? "Leave a review" : "Preview review"}
+                  Leave a review
                   <span className="z-btn-arrow" aria-hidden="true">
                     <svg viewBox="0 0 12 12" strokeWidth="2">
                       <path d="M6 9V3M6 3L3 6M6 3L9 6" />
@@ -205,6 +233,51 @@ export function TrackingPage() {
                 <p className="tr-step-desc" style={{ margin: 0, textAlign: "center" }}>
                   Waiting for provider to accept…
                 </p>
+              )}
+
+              {/* The other way out. Until this job is finished or cancelled,
+                  Zeyla will not take a new request from this customer. */}
+              {viewer === "customer" && !isCompleted && !isDeclined && (
+                <>
+                  {cancelError && (
+                    <p className="z-error" role="alert">
+                      {cancelError}
+                    </p>
+                  )}
+                  {confirmCancel ? (
+                    <>
+                      <p className="tr-step-desc" style={{ margin: 0 }}>
+                        {isPaid
+                          ? "Cancelling now opens a payment dispute over the held funds."
+                          : "This closes the request so you can describe a new problem."}
+                      </p>
+                      <button
+                        type="button"
+                        className="z-btn z-btn-danger"
+                        disabled={isCancelling}
+                        onClick={() => void handleCancel()}
+                      >
+                        {isCancelling ? "Cancelling…" : "Yes, cancel this job"}
+                      </button>
+                      <button
+                        type="button"
+                        className="z-btn z-btn-ghost"
+                        disabled={isCancelling}
+                        onClick={() => setConfirmCancel(false)}
+                      >
+                        Keep it
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      className="z-btn z-btn-ghost"
+                      onClick={() => setConfirmCancel(true)}
+                    >
+                      Cancel this job
+                    </button>
+                  )}
+                </>
               )}
             </div>
           </aside>

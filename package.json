@@ -13,7 +13,9 @@
     "lint": "pnpm -r run lint",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
-    "db:migrate": "pnpm --filter @zeyla/api db:migrate"
+    "db:migrate": "pnpm --filter @zeyla/api db:migrate",
+    "db:seed": "pnpm --filter @zeyla/api db:seed",
+    "db:reset": "pnpm --filter @zeyla/api db:reset"
   },
   "engines": {
     "node": ">=22"

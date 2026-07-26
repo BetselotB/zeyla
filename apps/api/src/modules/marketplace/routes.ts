@@ -16,6 +16,7 @@ import {
 } from "./profile.service.js";
 import { getProviderDashboard } from "./provider-home.service.js";
 import {
+  cancelJobForActor,
   fanoutPings,
   listProviderPings,
   listRequestPings,
@@ -23,6 +24,7 @@ import {
 } from "./pings.service.js";
 import {
   createServiceRequest,
+  getActiveJob,
   getOwnedServiceRequest,
   listServiceRequests,
 } from "./requests.service.js";
@@ -193,6 +195,19 @@ marketplaceRouter.get(
   }),
 );
 
+/**
+ * The caller's one unfinished job, or null. Registered before `/requests/:id`
+ * so "active" is never parsed as an id.
+ */
+marketplaceRouter.get(
+  "/requests/active",
+  requireAuth,
+  handle(async (req) => {
+    const active = await getActiveJob(requireActor(req));
+    return { active };
+  }),
+);
+
 marketplaceRouter.get(
   "/requests/:id",
   requireAuth,
@@ -202,6 +217,17 @@ marketplaceRouter.get(
     const request = await getOwnedServiceRequest(actor, requestId);
     const pings = await listRequestPings(requestId);
     return { request, pings };
+  }),
+);
+
+/** Either party walks away. The service decides which one is calling. */
+marketplaceRouter.post(
+  "/requests/:id/cancel",
+  requireAuth,
+  handle(async (req) => {
+    const actor = requireActor(req);
+    const requestId = uuidSchema.parse(req.params.id);
+    return cancelJobForActor(actor, requestId);
   }),
 );
 

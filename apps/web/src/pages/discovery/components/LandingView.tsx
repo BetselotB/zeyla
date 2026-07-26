@@ -1,6 +1,9 @@
 import { useState } from "react";
+import { AppNav } from "../../../components/AppNav.js";
+import { ActiveJobBanner } from "../../../jobs/ActiveJobBanner.js";
+import { useActiveJob } from "../../../jobs/useActiveJob.js";
 import type { ServiceRequestDto } from "../lib/types.js";
-import { DiscoveryNav, TrustStrip } from "./DiscoveryNav.js";
+import { TrustStrip } from "./DiscoveryNav.js";
 import { LanguageSelect } from "./LanguageSelect.js";
 import { LiveAvailability } from "./LiveAvailability.js";
 import { ProblemIntake } from "./ProblemIntake.js";
@@ -14,11 +17,19 @@ function hasStoredLanguage() {
 export function LandingView() {
   const [showLang, setShowLang] = useState(!hasStoredLanguage());
   const [request, setRequest] = useState<ServiceRequestDto | null>(null);
+  const { activeJob, isLoading, isCancelling, error, cancel, href, refresh } =
+    useActiveJob();
+
+  // A request created in this session takes precedence over the gate: the
+  // customer is mid-flow, picking a provider for the very job the gate would
+  // otherwise be telling them about.
+  const isGated = !request && !isLoading && activeJob !== null && href !== null;
+  const isIntakeOpen = !request && !isGated;
 
   return (
     <div className="z-page z-page-enter-stagger">
       {showLang && <LanguageSelect onComplete={() => setShowLang(false)} />}
-      <DiscoveryNav />
+      <AppNav />
 
       <section className="z-hero">
         <div className="z-badges">
@@ -26,25 +37,49 @@ export function LandingView() {
           <span className="z-badge z-badge-light">Addis AI ›</span>
         </div>
         <h1>
-          Find Trusted Local
-          <br />
-          Services in Seconds.
+          {isGated ? (
+            <>
+              You have a job
+              <br />
+              on the go.
+            </>
+          ) : (
+            <>
+              Find Trusted Local
+              <br />
+              Services in Seconds.
+            </>
+          )}
         </h1>
         <p>
-          Describe your problem in text or voice — Zeyla classifies it, ranks
-          nearby providers by trust score, and connects you in real time. Fast,
-          transparent, and built for Addis Ababa.
+          {isGated
+            ? "Zeyla keeps you to one job at a time so your provider and your escrow never get crossed. Finish this one — or cancel it — and you can book again straight away."
+            : "Describe your problem in text or voice — Zeyla classifies it, ranks nearby providers by trust score, and connects you in real time. Fast, transparent, and built for Addis Ababa."}
         </p>
-        {!request && <LiveAvailability />}
+        {isIntakeOpen && <LiveAvailability />}
       </section>
 
-      {!request ? (
-        <ProblemIntake onResults={(created) => setRequest(created)} />
-      ) : (
+      {request ? (
         <ProviderResults request={request} />
+      ) : isGated ? (
+        <ActiveJobBanner
+          job={activeJob!}
+          href={href!}
+          isCancelling={isCancelling}
+          error={error}
+          onCancel={() => void cancel()}
+        />
+      ) : (
+        <ProblemIntake
+          onResults={(created) => {
+            setRequest(created);
+            // The new request is now the active one; keep the nav pill honest.
+            refresh();
+          }}
+        />
       )}
 
-      {!request && <TrustStrip />}
+      {isIntakeOpen && <TrustStrip />}
     </div>
   );
 }

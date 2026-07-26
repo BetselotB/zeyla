@@ -1,4 +1,4 @@
-import type { ApiResponse } from "@zeyla/shared";
+import type { ApiResponse, ProviderTrustDto } from "@zeyla/shared";
 import type {
   LanguageCode,
   MatchResult,
@@ -172,47 +172,18 @@ export async function matchProvider(
 
 // --- Trust -------------------------------------------------------------------
 
-/** Score plus the "why this score" text. `explain=ai` rephrases the same facts. */
+/**
+ * Score plus the "why this score" text. `explain=ai` rephrases the same facts.
+ *
+ * The endpoint returns the explanation as a structured object; the panels
+ * below want one sentence, so the summary line is what gets carried through.
+ */
 export async function getTrustBreakdown(
-  providerId: string | number,
+  providerId: string,
 ): Promise<TrustBreakdown> {
-  const data = await call<{ breakdown: Omit<TrustBreakdown, "explanation">; explanation: string }>(
-    `/trust/providers/${providerId}`,
-    { auth: false, query: { explain: "ai" } },
-  );
-  return { ...data.breakdown, explanation: data.explanation };
-}
-
-// --- Reviews and flags -------------------------------------------------------
-// Both endpoints key off a contract, which only exists once escrow has been
-// funded, so the reviews screen cannot call them until that flow is wired. The
-// signatures below match what that screen already passes; they will need the
-// contract id before they do anything but fail.
-
-export async function submitRating(payload: {
-  request_id: number;
-  provider_id: number;
-  stars: number;
-  tags: string[];
-  comment?: string;
-}): Promise<void> {
-  await call("/trust/reviews", {
-    method: "POST",
-    body: {
-      contractId: String(payload.request_id),
-      rating: payload.stars,
-      comment: payload.comment ?? null,
-      transcriptSource: "typed",
-    },
+  const data = await call<ProviderTrustDto>(`/trust/providers/${providerId}`, {
+    auth: false,
+    query: { explain: "ai" },
   });
-}
-
-export async function submitFlag(payload: {
-  target_user_id: number | string;
-  reason: string;
-}): Promise<void> {
-  await call("/trust/flags", {
-    method: "POST",
-    body: { providerId: String(payload.target_user_id), reason: payload.reason },
-  });
+  return { ...data.breakdown, explanation: data.explanation.summary };
 }

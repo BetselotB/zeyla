@@ -247,6 +247,93 @@
 
 /* ── Shift stats ────────────────────────────────────────────────────────── */
 
+/* ── Earnings ── */
+.pv-earn {
+  padding: 1.5rem 1.6rem;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  background: linear-gradient(
+    135deg,
+    rgba(17, 17, 17, 0.92),
+    rgba(38, 38, 42, 0.92)
+  );
+  color: #fff;
+  box-shadow: 0 20px 46px rgba(0, 0, 0, 0.16);
+}
+
+.pv-earn__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.pv-earn__label {
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.pv-earn__total {
+  margin: 0.3rem 0 0.35rem;
+  font-size: 2.4rem;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.pv-earn__sub {
+  font-size: 0.8125rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.pv-earn__badge {
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  font-size: 0.6875rem;
+  color: rgba(255, 255, 255, 0.75);
+  white-space: nowrap;
+}
+
+.pv-earn__row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1rem;
+  margin-top: 1.4rem;
+  padding-top: 1.2rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.pv-earn__cell {
+  display: grid;
+  gap: 0.25rem;
+  align-content: start;
+}
+
+.pv-earn__cell-label {
+  font-size: 0.68rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.pv-earn__cell-value {
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.pv-earn__cell-note {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
 .pv-stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));

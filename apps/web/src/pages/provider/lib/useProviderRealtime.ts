@@ -16,6 +16,12 @@ interface ProviderRealtimeHandlers {
    * `escrowed`, which is Chapa's webhook telling us the customer has paid.
    */
   onContractStatus: (event: ContractEventMessage) => void;
+  /**
+   * Anything else the server thought was worth telling them about. Reviews and
+   * trust-score changes arrive this way rather than as contract transitions,
+   * and both move numbers on this screen.
+   */
+  onNotification?: () => void;
 }
 
 /**
@@ -36,6 +42,9 @@ export function useProviderRealtime(handlers: ProviderRealtimeHandlers) {
   useSocketEvent<ContractEventMessage>(
     REALTIME_EVENTS.CONTRACT_STATUS,
     handlers.onContractStatus,
+  );
+  useSocketEvent<unknown>(REALTIME_EVENTS.NOTIFICATION_NEW, () =>
+    handlers.onNotification?.(),
   );
 
   return { isConnected };

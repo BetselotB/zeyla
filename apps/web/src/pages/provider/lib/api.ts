@@ -89,6 +89,14 @@ export function respondToPing(
   });
 }
 
+export function cancelJob(
+  requestId: string,
+): Promise<{ request: ServiceRequestDto }> {
+  return call(`/marketplace/requests/${encodeURIComponent(requestId)}/cancel`, {
+    method: "POST",
+  });
+}
+
 /** Customer-facing: how many providers near a point are online right now. */
 export function getNearbyAvailability(params: {
   lat: number;

@@ -151,6 +151,40 @@ export async function getContractForRequest(
   };
 }
 
+/**
+ * Exit path for an accepted request, for whichever party is walking away. An
+ * unfunded request may not have a contract yet; once checkout exists, park the
+ * contract in dispute so a late Chapa payment can never progress into active
+ * work or payout silently.
+ *
+ * Dispute rather than delete, because held money has to stay accounted for:
+ * the admin refund path is what actually returns it.
+ */
+export async function disputeContractForCancellation(
+  requestId: string,
+  partyId: string,
+  reason: string,
+): Promise<Contract | null> {
+  const contract = await repo.findContractByRequest({ requestId, partyId });
+  if (!contract) return null;
+  if (contract.status === "disputed") return contract;
+  if (contract.status === "completed") {
+    throw new EscrowError("completed_job_cannot_be_cancelled", 409);
+  }
+  return move(contract, "disputed", `user:${partyId}`, reason);
+}
+
+export function disputeContractForProviderCancellation(
+  requestId: string,
+  providerId: string,
+): Promise<Contract | null> {
+  return disputeContractForCancellation(
+    requestId,
+    providerId,
+    "provider cancelled the job",
+  );
+}
+
 export async function getContractEvents(contractId: string, user: UserRow) {
   const contract = await loadContract(contractId);
   assertParticipant(contract, user.id);

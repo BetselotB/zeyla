@@ -8,6 +8,8 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "db:migrate": "tsx src/db/migrate.ts",
+    "db:seed": "tsx src/db/seed.ts",
+    "db:reset": "tsx src/db/seed.ts reset",
     "lint": "tsc -p tsconfig.json --noEmit",
     "smoke": "node smoke/run.mjs"
   },

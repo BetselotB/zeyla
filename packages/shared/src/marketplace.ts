@@ -213,6 +213,30 @@ export interface PingFanoutResult {
   skipped: { providerId: string; reason: string }[];
 }
 
+/**
+ * The one job a customer is allowed to have in flight.
+ *
+ * Discovery reads this before it lets anyone describe a new problem: a second
+ * open request would ping the same providers twice and split the customer's
+ * attention across two escrows. `null` from the endpoint means the road is
+ * clear.
+ */
+export interface ActiveJobSummary {
+  request: ServiceRequestDto;
+  /** The provider who took it, once someone has. */
+  providerId: string | null;
+  providerName: string | null;
+  /** Escrow state, null until checkout starts. */
+  payment: JobPaymentSummary | null;
+  /**
+   * True once the job can no longer be walked away from for free — the money
+   * is held and the customer must either confirm completion or dispute it.
+   */
+  isPaid: boolean;
+  /** False once the request is finished, so the UI can stop blocking. */
+  isBlocking: boolean;
+}
+
 /** Languages a customer may speak: English, Amharic, Afaan Oromo. */
 export const SPOKEN_LANGUAGES = ["en", "am", "om"] as const;
 export type SpokenLanguage = (typeof SPOKEN_LANGUAGES)[number];

@@ -15,6 +15,7 @@ interface JobCardProps {
   onRespond: (pingId: string, action: "accepted" | "declined") => void;
   /** Supplied for jobs already taken, to open the live tracking screen. */
   onOpen?: (ping: ProviderPingDto) => void;
+  onCancel?: (ping: ProviderPingDto) => void;
 }
 
 /**
@@ -23,7 +24,13 @@ interface JobCardProps {
  * The countdown is the point: a ping the provider cannot win any more must stop
  * looking like one they can, otherwise they tap accept and get a conflict.
  */
-export function JobCard({ ping, isPending, onRespond, onOpen }: JobCardProps) {
+export function JobCard({
+  ping,
+  isPending,
+  onRespond,
+  onOpen,
+  onCancel,
+}: JobCardProps) {
   const [remaining, setRemaining] = useState(() => secondsUntil(ping.expiresAt));
 
   useEffect(() => {
@@ -121,14 +128,33 @@ export function JobCard({ ping, isPending, onRespond, onOpen }: JobCardProps) {
           </div>
         )}
 
-        {!isLive && onOpen && (
-          <button
-            type="button"
-            className="z-btn z-btn-ghost"
-            onClick={() => onOpen(ping)}
-          >
-            Open job
-          </button>
+        {!isLive && (onOpen || onCancel) && (
+          <div className="pv-job__actions">
+            {onCancel && (
+              <button
+                type="button"
+                className="z-btn z-btn-ghost"
+                disabled={isPending}
+                onClick={() => onCancel(ping)}
+              >
+                {isPending
+                  ? "Cancelling…"
+                  : ping.payment?.isPaid
+                    ? "Cancel & dispute"
+                    : "Cancel job"}
+              </button>
+            )}
+            {onOpen && (
+              <button
+                type="button"
+                className="z-btn z-btn-ghost"
+                disabled={isPending}
+                onClick={() => onOpen(ping)}
+              >
+                Open job
+              </button>
+            )}
+          </div>
         )}
       </footer>
     </article>

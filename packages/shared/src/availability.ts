@@ -67,6 +67,13 @@ export interface ProviderShiftStats {
   earnedTodayEtb: number;
   /** Held in escrow on jobs that are not finished yet. */
   pendingEarningsEtb: number;
+  /** Every payout this provider has ever received, net of the platform fee. */
+  earnedTotalEtb: number;
+  /** Contracts completed over the provider's whole history, not just today. */
+  completedTotal: number;
+  /** Mean review rating across every job. Null before the first review. */
+  avgRating: number | null;
+  reviewCount: number;
   /** Accepted / answered over the last 30 days. Null before the first answer. */
   acceptanceRate: number | null;
   onlineSecondsToday: number;

@@ -29,6 +29,10 @@ interface StatsRow {
   completed_today: string;
   earned_today: string | null;
   pending_earnings: string | null;
+  earned_total: string | null;
+  completed_total: string;
+  avg_rating: string | null;
+  review_count: string;
   answered_30d: string;
   accepted_30d: string;
 }
@@ -69,7 +73,19 @@ async function readShiftStats(
           FROM escrow_ledger l
           JOIN contracts c ON c.id = l.contract_id
          WHERE c.provider_id = $1::uuid
-           AND l.status = 'held')                                            AS pending_earnings
+           AND l.status = 'held')                                            AS pending_earnings,
+       (SELECT COALESCE(SUM(l.provider_payout), 0)
+          FROM escrow_ledger l
+          JOIN contracts c ON c.id = l.contract_id
+         WHERE c.provider_id = $1::uuid
+           AND l.status = 'released')                                        AS earned_total,
+       (SELECT COUNT(*) FROM contracts c
+         WHERE c.provider_id = $1::uuid
+           AND c.status = 'completed')                                       AS completed_total,
+       (SELECT AVG(rating) FROM reviews rv
+         WHERE rv.provider_id = $1::uuid)                                    AS avg_rating,
+       (SELECT COUNT(*) FROM reviews rv
+         WHERE rv.provider_id = $1::uuid)                                    AS review_count
      FROM pings p
      WHERE p.provider_id = $1::uuid`,
     [providerId],
@@ -77,6 +93,7 @@ async function readShiftStats(
 
   const row = result.rows[0];
   const answered = Number(row?.answered_30d ?? 0);
+  const reviewCount = Number(row?.review_count ?? 0);
 
   return {
     pingsReceivedToday: Number(row?.pings_today ?? 0),
@@ -86,6 +103,11 @@ async function readShiftStats(
     completedToday: Number(row?.completed_today ?? 0),
     earnedTodayEtb: Number(row?.earned_today ?? 0),
     pendingEarningsEtb: Number(row?.pending_earnings ?? 0),
+    earnedTotalEtb: Number(row?.earned_total ?? 0),
+    completedTotal: Number(row?.completed_total ?? 0),
+    avgRating:
+      reviewCount === 0 ? null : Math.round(Number(row?.avg_rating ?? 0) * 10) / 10,
+    reviewCount,
     acceptanceRate:
       answered === 0
         ? null

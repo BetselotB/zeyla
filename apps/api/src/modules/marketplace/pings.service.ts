@@ -8,13 +8,17 @@ import type {
 } from "@zeyla/shared";
 import { REALTIME_EVENTS } from "@zeyla/shared";
 import { query } from "../../db/client.js";
-import { paymentSummariesByRequest } from "../escrow/service.js";
+import {
+  disputeContractForProviderCancellation,
+  paymentSummariesByRequest,
+} from "../escrow/service.js";
 import { notify, notifyMany } from "../notifications/notifications.service.js";
 import { emitToProvider, emitToUser } from "../realtime/io.js";
-import { markBusy } from "./availability.service.js";
+import { markBusy, releaseFromJob } from "./availability.service.js";
 import type { Actor } from "./lib/actor.js";
 import { ApiError } from "./lib/errors.js";
 import {
+  cancelOwnRequest,
   getOwnedServiceRequest,
   getServiceRequest,
   setRequestStatus,
@@ -397,6 +401,59 @@ export async function respondToPing(
   }
 
   return { ping, request };
+}
+
+/**
+ * Cancel a job from whichever side asked.
+ *
+ * Both parties press the same button on their own screen, so the endpoint has
+ * to work out which one is calling: the customer owns the request, the
+ * provider merely accepted a ping on it, and the two paths differ in who gets
+ * notified and whose availability is freed.
+ */
+export async function cancelJobForActor(
+  actor: Actor,
+  requestId: string,
+): Promise<{ request: ServiceRequestDto }> {
+  const request = await getServiceRequest(requestId);
+  return request.userId === actor.userId
+    ? cancelOwnRequest(actor, requestId)
+    : cancelAcceptedJob(actor, requestId);
+}
+
+/** Let the accepted provider leave a job the customer abandoned. */
+export async function cancelAcceptedJob(
+  actor: Actor,
+  requestId: string,
+): Promise<{ request: ServiceRequestDto }> {
+  const accepted = await query<{ customer_id: string }>(
+    `SELECT r.user_id AS customer_id
+       FROM pings p
+       JOIN service_requests r ON r.id = p.request_id
+      WHERE p.request_id = $1::uuid
+        AND p.provider_id = $2::uuid
+        AND p.status = 'accepted'
+        AND r.status = 'accepted'`,
+    [requestId, actor.userId],
+  );
+  const row = accepted.rows[0];
+  if (!row) throw ApiError.conflict("job_not_cancellable");
+
+  // Money safety comes first. If checkout already created a contract, dispute
+  // it before closing the marketplace request.
+  await disputeContractForProviderCancellation(requestId, actor.userId);
+  const request = await setRequestStatus(requestId, "cancelled");
+  await releaseFromJob(actor.userId);
+
+  await notify({
+    userId: row.customer_id,
+    type: "ping_declined",
+    title: "Provider cancelled the job",
+    body: "This request is closed. Any funded payment has been placed in dispute.",
+    data: { requestId, providerId: actor.userId },
+  });
+
+  return { request };
 }
 
 function describeJob(request: ServiceRequestDto, distanceMeters: number | null) {

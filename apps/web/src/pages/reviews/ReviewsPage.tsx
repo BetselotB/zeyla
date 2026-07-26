@@ -1,40 +1,64 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import {
-  getTrustBreakdown,
-  submitFlag,
-  submitRating,
-  transcribeText,
-} from "../discovery/lib/api.js";
-import { MOCK_PROVIDERS } from "../discovery/lib/mockData.js";
-import type { TrustBreakdown } from "../discovery/lib/types.js";
+import type { JobPaymentSummary } from "@zeyla/shared";
+import { AppNav } from "../../components/AppNav.js";
+import { getContractForRequest } from "../../escrow/api.js";
+import { transcribeText } from "../discovery/lib/api.js";
 import { LanguageProvider, useLanguage } from "../discovery/lib/language.js";
+import { AnimatedMeshBg } from "../discovery/components/AnimatedMeshBg.js";
+import {
+  getProviderTrust,
+  listProviderReviews,
+  submitFlag,
+  submitReview,
+  type TrustView,
+} from "./api.js";
 import { FlagPanel } from "./components/FlagPanel.js";
 import { ReviewForm } from "./components/ReviewForm.js";
 import { ReviewSuccess } from "./components/ReviewSuccess.js";
-import { ReviewsNav } from "./components/ReviewsNav.js";
 import { TrustPanel } from "./components/TrustPanel.js";
-import { AnimatedMeshBg } from "../discovery/components/AnimatedMeshBg.js";
 import "../discovery/discovery.css";
 import "./reviews.css";
 
+/** Why the review form is not available yet, in the customer's terms. */
+function blockedReason(payment: JobPaymentSummary | null): string | null {
+  if (!payment) {
+    return "This job hasn't been paid for yet, so there's nothing to review. Fund the escrow and come back once the work is finished.";
+  }
+  if (payment.status === "disputed") {
+    return "This job is under review by Zeyla. Reviews open again once the dispute is settled.";
+  }
+  if (payment.status !== "completed") {
+    return "You can leave a review as soon as you've confirmed the job is done and released the payment.";
+  }
+  return null;
+}
+
 function ReviewsContent() {
   const [params] = useSearchParams();
-  const requestId = Number(params.get("requestId") ?? "100");
-  const providerId = Number(params.get("providerId") ?? "1");
+  const requestId = params.get("requestId") ?? "";
+  const providerIdParam = params.get("providerId") ?? "";
   const { lang } = useLanguage();
 
-  const provider = MOCK_PROVIDERS.find((p) => p.id === providerId);
+  const [contractId, setContractId] = useState<string | null>(null);
+  const [payment, setPayment] = useState<JobPaymentSummary | null>(null);
+  const [providerId, setProviderId] = useState(providerIdParam);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const [trust, setTrust] = useState<TrustView | null>(null);
+  const [reviewCount, setReviewCount] = useState<number | null>(null);
 
   const [stars, setStars] = useState(0);
   const [tags, setTags] = useState<string[]>([]);
   const [comment, setComment] = useState("");
+  const [source, setSource] = useState<"typed" | "whisperflow">("typed");
   const [recording, setRecording] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  const [submitted, setSubmitted] = useState<{ trustScore: number; delta: number } | null>(
+    null,
+  );
   const [error, setError] = useState<string | null>(null);
 
-  const [breakdown, setBreakdown] = useState<TrustBreakdown | null>(null);
   const [flagReason, setFlagReason] = useState("");
   const [flagging, setFlagging] = useState(false);
   const [flagged, setFlagged] = useState(false);
@@ -42,9 +66,50 @@ function ReviewsContent() {
 
   const trackingUrl = `/tracking?requestId=${requestId}&providerId=${providerId}`;
 
+  // The contract is what a review actually hangs off, and it also tells us who
+  // the provider is when the URL did not carry it.
   useEffect(() => {
-    getTrustBreakdown(providerId).then(setBreakdown).catch(() => {});
-  }, [providerId]);
+    if (!requestId) {
+      setIsLoading(false);
+      return;
+    }
+    let cancelled = false;
+
+    getContractForRequest(requestId)
+      .then(({ contract, payment: summary }) => {
+        if (cancelled) return;
+        setContractId(contract?.id ?? null);
+        setPayment(summary);
+        if (summary?.providerId) setProviderId(summary.providerId);
+      })
+      .catch(() => {
+        if (!cancelled) setError("We couldn't load this job. Try opening it again.");
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [requestId]);
+
+  const loadTrust = useCallback(async (id: string) => {
+    try {
+      const [view, reviews] = await Promise.all([
+        getProviderTrust(id),
+        listProviderReviews(id).catch(() => []),
+      ]);
+      setTrust(view);
+      setReviewCount(reviews.length);
+    } catch {
+      setTrust(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (providerId) void loadTrust(providerId);
+  }, [providerId, loadTrust]);
 
   function toggleTag(id: string) {
     setTags((prev) =>
@@ -70,6 +135,7 @@ function ReviewsContent() {
       const blob = new Blob(chunks, { type: "audio/webm" });
       const text = await transcribeText(blob, lang);
       setComment((c) => (c ? `${c} ${text}` : text));
+      setSource("whisperflow");
     } catch {
       setError("Voice recording failed. Type your review instead.");
     } finally {
@@ -82,19 +148,33 @@ function ReviewsContent() {
       setError("Please select a star rating.");
       return;
     }
+    if (!contractId) {
+      setError("This job has no completed payment to review.");
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
     try {
-      await submitRating({
-        request_id: requestId,
-        provider_id: providerId,
-        stars,
+      const { trust: recomputed } = await submitReview({
+        contractId,
+        rating: stars,
         tags,
-        comment: comment.trim() || undefined,
+        comment,
+        transcriptSource: source,
       });
-      setSubmitted(true);
-    } catch {
-      setError("Could not submit review. Please try again.");
+      // The provider's dashboard picks the new score up over its own refresh;
+      // here it is shown immediately so the customer sees their review land.
+      setSubmitted({ trustScore: recomputed.trustScore, delta: recomputed.delta });
+    } catch (err) {
+      const code = err instanceof Error ? err.message : "";
+      setError(
+        code === "review_already_exists"
+          ? "You've already reviewed this job."
+          : code === "contract_not_completed"
+            ? "Confirm the job is finished before reviewing it."
+            : "Could not submit review. Please try again.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -105,31 +185,40 @@ function ReviewsContent() {
       setError("Please select a reason for flagging.");
       return;
     }
+    if (!providerId) return;
+
     setFlagging(true);
     setError(null);
     try {
-      await submitFlag({ target_user_id: providerId, reason: flagReason });
+      await submitFlag({ providerId, contractId, reason: flagReason });
       setFlagged(true);
-    } catch {
-      setError("Could not submit flag. Please try again.");
+      void loadTrust(providerId);
+    } catch (err) {
+      setError(
+        err instanceof Error && err.message === "already_flagged"
+          ? "You've already flagged this provider."
+          : "Could not submit flag. Please try again.",
+      );
     } finally {
       setFlagging(false);
     }
   }
 
-  if (submitted) {
-    return <ReviewSuccess />;
-  }
+  if (submitted) return <ReviewSuccess />;
+
+  const blocked = isLoading ? null : blockedReason(payment);
 
   return (
     <div className="reviews-root">
       <AnimatedMeshBg />
       <div className="rv-page z-page-enter-stagger">
-        <ReviewsNav backTo={trackingUrl} />
+        <AppNav backTo={trackingUrl} backLabel="Back to tracking" />
 
         <header className="rv-hero">
           <div className="rv-badges">
-            <span className="rv-badge-dark">Job completed</span>
+            <span className="rv-badge-dark">
+              {blocked ? "Job in progress" : "Job completed"}
+            </span>
             <span className="rv-badge-light">Rate provider ›</span>
           </div>
           <h1>How was your experience?</h1>
@@ -138,11 +227,11 @@ function ReviewsContent() {
             providers in Addis Ababa.
           </p>
           <div className="rv-request-pill">
-            Request <strong>#{requestId}</strong>
-            {provider && (
+            Request <strong>#{requestId.slice(0, 8)}</strong>
+            {trust?.providerName && (
               <>
                 <span aria-hidden="true">·</span>
-                <strong>{provider.name}</strong>
+                <strong>{trust.providerName}</strong>
               </>
             )}
           </div>
@@ -152,26 +241,49 @@ function ReviewsContent() {
 
         <div className="rv-grid">
           <div className="rv-main-card">
-            <ReviewForm
-              stars={stars}
-              tags={tags}
-              comment={comment}
-              recording={recording}
-              submitting={submitting}
-              onStarsChange={setStars}
-              onToggleTag={toggleTag}
-              onCommentChange={setComment}
-              onVoice={handleVoiceReview}
-              onSubmit={handleSubmitReview}
-            />
+            {isLoading ? (
+              <div className="z-glass-inner rv-form-inner">
+                <p className="rv-section-label">Loading this job…</p>
+              </div>
+            ) : blocked ? (
+              <div className="z-glass-inner rv-form-inner">
+                <p className="rv-section-label">Not ready to review</p>
+                <p className="rv-trust-explain">{blocked}</p>
+                <div className="rv-submit-row">
+                  <a href={trackingUrl} className="z-btn z-btn-primary">
+                    Back to the job
+                  </a>
+                </div>
+              </div>
+            ) : (
+              <ReviewForm
+                stars={stars}
+                tags={tags}
+                comment={comment}
+                recording={recording}
+                submitting={submitting}
+                onStarsChange={setStars}
+                onToggleTag={toggleTag}
+                onCommentChange={setComment}
+                onVoice={() => void handleVoiceReview()}
+                onSubmit={() => void handleSubmitReview()}
+              />
+            )}
           </div>
 
           <aside className="rv-sidebar">
-            {breakdown && (
-              <TrustPanel
-                breakdown={breakdown}
-                providerName={provider?.name}
-              />
+            {trust && (
+              <>
+                <TrustPanel breakdown={trust} providerName={trust.providerName ?? undefined} />
+                <p className="rv-trust-explain">
+                  {reviewCount === 0
+                    ? "No reviews yet — yours would be the first."
+                    : `${reviewCount} ${reviewCount === 1 ? "review" : "reviews"}` +
+                      (trust.avgRating === null
+                        ? ""
+                        : ` · ${trust.avgRating.toFixed(1)} average`)}
+                </p>
+              </>
             )}
             <FlagPanel
               show={showFlag}
@@ -181,7 +293,7 @@ function ReviewsContent() {
               onToggle={() => setShowFlag(true)}
               onCancel={() => setShowFlag(false)}
               onReasonChange={setFlagReason}
-              onSubmit={handleFlag}
+              onSubmit={() => void handleFlag()}
             />
           </aside>
         </div>

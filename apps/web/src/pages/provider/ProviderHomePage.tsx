@@ -7,12 +7,13 @@ import type {
   ProviderPingDto,
 } from "@zeyla/shared";
 import { AuthSplash } from "../../auth/AuthSplash";
+import { AppNav } from "../../components/AppNav";
 import { AnimatedMeshBg } from "../discovery/components/AnimatedMeshBg.js";
 import "../discovery/discovery.css";
 import { AvailabilityToggle } from "./components/AvailabilityToggle";
+import { EarningsPanel } from "./components/EarningsPanel";
 import { IncomingJobAlert } from "./components/IncomingJobAlert";
 import { JobCard } from "./components/JobCard";
-import { ProviderNav } from "./components/ProviderNav";
 import { ServiceArea } from "./components/ServiceArea";
 import { ShiftStats } from "./components/ShiftStats";
 import * as api from "./lib/api";
@@ -129,6 +130,9 @@ export function ProviderHomePage() {
     onPing: handlePing,
     onPresence: handlePresence,
     onContractStatus: handleContractStatus,
+    // A review or a trust-score change moves the earnings and rating panels
+    // without any contract having transitioned.
+    onNotification: handleContractStatus,
   });
 
   // --- Keep-alive ------------------------------------------------------------
@@ -215,6 +219,29 @@ export function ProviderHomePage() {
     [load, navigate, providerId],
   );
 
+  const cancelJob = useCallback(
+    async (ping: ProviderPingDto) => {
+      const warning = ping.payment?.isPaid
+        ? "Cancel this paid job and open a payment dispute?"
+        : "Cancel this job? The customer will be notified.";
+      if (!window.confirm(warning)) return;
+
+      setPendingPingId(ping.id);
+      isMutating.current = true;
+      setActionError(null);
+      try {
+        await api.cancelJob(ping.request.id);
+        await load();
+      } catch {
+        setActionError("We couldn't cancel this job. Refresh and try again.");
+      } finally {
+        setPendingPingId(null);
+        isMutating.current = false;
+      }
+    },
+    [load],
+  );
+
   const updateArea = useCallback(
     async (patch: { serviceRadiusMeters?: number; useLocation?: boolean }) => {
       if (!availability) return;
@@ -289,7 +316,7 @@ export function ProviderHomePage() {
         <div className="discovery-root">
           <AnimatedMeshBg />
           <div className="z-page provider-page">
-            <ProviderNav status="offline" />
+            <AppNav status="offline" />
             <section className="z-hero">
               <h1>We couldn't load your dashboard</h1>
               <p>{loadError}</p>
@@ -314,7 +341,7 @@ export function ProviderHomePage() {
     <div className="discovery-root">
       <AnimatedMeshBg />
       <div className="z-page z-page-enter-stagger provider-page">
-        <ProviderNav status={status} />
+        <AppNav status={status} />
 
         <section className="z-hero pv-hero">
           <div className="z-badges">
@@ -351,6 +378,8 @@ export function ProviderHomePage() {
             onChange={(next) => void changeStatus(next)}
           />
 
+          <EarningsPanel stats={dashboard.stats} />
+
           <ShiftStats stats={dashboard.stats} />
 
           <div className="pv-columns">
@@ -368,9 +397,10 @@ export function ProviderHomePage() {
                       <JobCard
                         key={ping.id}
                         ping={ping}
-                        isPending={false}
+                        isPending={pendingPingId === ping.id}
                         onRespond={() => undefined}
                         onOpen={openJob}
+                        onCancel={(job) => void cancelJob(job)}
                       />
                     ))}
                   </div>

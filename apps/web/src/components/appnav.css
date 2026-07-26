@@ -1,0 +1,92 @@
+/* Role-aware nav chrome. Layout comes from .z-glass-nav in discovery.css. */
+
+.nv-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8125rem;
+  color: #444;
+  text-decoration: none;
+}
+
+.nv-back svg {
+  width: 15px;
+  height: 15px;
+}
+
+.nv-link--current {
+  color: #111 !important;
+  font-weight: 600;
+}
+
+.nv-cta {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.nv-job-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(17, 17, 17, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #222;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.nv-job-pill:hover {
+  background: rgba(17, 17, 17, 0.1);
+}
+
+.nv-job-pill__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #1f9d55;
+  box-shadow: 0 0 0 3px rgba(31, 157, 85, 0.18);
+}
+
+.nv-account {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.nv-account__name {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #333;
+  max-width: 8ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nv-signout {
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.6);
+  font-family: inherit;
+  font-size: 0.75rem;
+  color: #555;
+  cursor: pointer;
+}
+
+.nv-signout:hover {
+  background: rgba(255, 255, 255, 0.9);
+  color: #111;
+}
+
+@media (max-width: 720px) {
+  .nv-account__name,
+  .nv-job-pill {
+    display: none;
+  }
+}

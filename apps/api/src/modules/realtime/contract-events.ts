@@ -6,7 +6,9 @@ import {
 } from "@zeyla/shared";
 import type { Redis } from "ioredis";
 import { redis } from "../../lib/redis.js";
+import { findContract } from "../escrow/repo.js";
 import { releaseFromJob } from "../marketplace/availability.service.js";
+import { completeRequestForContract } from "../marketplace/requests.service.js";
 import { notify } from "../notifications/notifications.service.js";
 import { recomputeTrustScore } from "../trust/trust.service.js";
 import { contractRoom, emitToRooms, userRoom } from "./io.js";
@@ -205,6 +207,15 @@ async function announce(event: ContractEventMessage): Promise<void> {
  * lock, so a duplicate delivery (or a second API instance) is a no-op.
  */
 async function onContractCompleted(event: ContractEventMessage): Promise<void> {
+  // The marketplace request is what the customer's "one job at a time" rule
+  // reads, so it has to close with the contract or they can never book again.
+  try {
+    const contract = await findContract(event.contractId);
+    if (contract?.requestId) await completeRequestForContract(contract.requestId);
+  } catch (err) {
+    console.error("[realtime] could not close request after completion", err);
+  }
+
   try {
     const result = await recomputeTrustScore(
       event.providerId,
