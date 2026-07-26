@@ -421,11 +421,25 @@ export async function cancelJobForActor(
     : cancelAcceptedJob(actor, requestId);
 }
 
-/** Let the accepted provider leave a job the customer abandoned. */
+/**
+ * Let the accepted provider leave a job the customer abandoned.
+ *
+ * A job that has already finished or been cancelled is returned untouched
+ * rather than refused: the provider is trying to clear it off their board, and
+ * an error on a job that is already over tells them nothing they can act on.
+ */
 export async function cancelAcceptedJob(
   actor: Actor,
   requestId: string,
 ): Promise<{ request: ServiceRequestDto }> {
+  const current = await getServiceRequest(requestId);
+  if (current.status === "completed" || current.status === "cancelled") {
+    // Make sure they are back on the radar even if the settling event that
+    // should have done it went missing.
+    await releaseFromJob(actor.userId);
+    return { request: current };
+  }
+
   const accepted = await query<{ customer_id: string }>(
     `SELECT r.user_id AS customer_id
        FROM pings p

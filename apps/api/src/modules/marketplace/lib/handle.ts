@@ -1,13 +1,16 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
 import { asyncHandler, fail, ok } from "../../../lib/respond.js";
+import { EscrowError } from "../../escrow/service.js";
 import { ApiError } from "./errors.js";
 
 /**
  * Route wrapper for the marketplace / realtime / notifications / trust modules.
  *
  * The handler returns plain data and this wraps it in `ok()`. Anything thrown is
- * translated: ApiError keeps its status, a Zod failure becomes 400 with the
+ * translated: ApiError keeps its status, an EscrowError keeps its own (cancelling
+ * a job reaches into escrow, and "the contract is already settled" is a 409 the
+ * customer needs to read, not an opaque 500), a Zod failure becomes 400 with the
  * offending fields, everything else becomes 500. Satisfies the "never throws
  * unhandled" rule without a try/catch in every handler.
  */
@@ -29,6 +32,11 @@ export function handle<T>(
           data: err.details === undefined ? null : { details: err.details },
           error: err.message,
         });
+        return;
+      }
+
+      if (err instanceof EscrowError) {
+        res.status(err.status).json(fail(err.message));
         return;
       }
 

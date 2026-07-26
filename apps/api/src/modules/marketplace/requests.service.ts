@@ -206,21 +206,32 @@ export async function getActiveJob(actor: Actor): Promise<ActiveJobSummary | nul
 /**
  * Customer abandons their own request.
  *
- * Allowed at any point before completion, but the money decides what
- * "cancelled" means: an unfunded request just closes, while a funded one goes
- * to dispute so the held ETB is resolved deliberately rather than vanishing
- * with the request. A completed job cannot be cancelled — it is reviewed.
+ * The money decides what "cancelled" means: an unfunded request just closes,
+ * while a funded one goes to dispute so the held ETB is resolved deliberately
+ * rather than vanishing with the request.
+ *
+ * A job that is already finished is the interesting case. Escrow will not let
+ * a completed contract be disputed, and refusing the cancel outright used to
+ * leave the customer staring at a job they had already paid for and could
+ * neither clear nor replace. So a finished job is reconciled instead of
+ * rejected: the request is closed to match the contract, which is what the
+ * customer was really asking for.
  */
 export async function cancelOwnRequest(
   actor: Actor,
   requestId: string,
 ): Promise<{ request: ServiceRequestDto }> {
   const existing = await getOwnedServiceRequest(actor, requestId);
-
-  if (existing.status === "completed") {
-    throw ApiError.conflict("completed_job_cannot_be_cancelled");
-  }
   if (existing.status === "cancelled") return { request: existing };
+  if (existing.status === "completed") return { request: existing };
+
+  const payments = await paymentSummariesByRequest({
+    requestIds: [requestId],
+    partyId: actor.userId,
+  });
+  if (payments.get(requestId)?.status === "completed") {
+    return { request: await setRequestStatus(requestId, "completed") };
+  }
 
   await disputeContractForCancellation(
     requestId,
