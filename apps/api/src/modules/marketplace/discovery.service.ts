@@ -166,6 +166,14 @@ export async function getProviderDetail(
   const row = result.rows[0];
   if (!row) throw ApiError.notFound("provider");
 
+  // Only the detail view carries prices: search results rank on trust and
+  // distance, and putting a range on every card invites comparing on price
+  // before anyone has described the job.
+  const pricing = await query<{ price_min: string | null; price_max: string | null }>(
+    "SELECT price_min, price_max FROM providers WHERE user_id = $1::uuid",
+    [providerId],
+  );
+
   const reviews = await query<{
     id: string;
     rating: number;
@@ -187,7 +195,13 @@ export async function getProviderDetail(
     createdAt: r.created_at.toISOString(),
   }));
 
-  return { ...toProviderSummary(row), recentReviews };
+  const price = pricing.rows[0];
+  return {
+    ...toProviderSummary(row),
+    recentReviews,
+    priceMin: price?.price_min == null ? null : Number(price.price_min),
+    priceMax: price?.price_max == null ? null : Number(price.price_max),
+  };
 }
 
 /** True when the provider row exists. Used before pinging or contracting. */

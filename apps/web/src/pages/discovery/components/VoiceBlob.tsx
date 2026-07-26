@@ -181,6 +181,14 @@ const LISTEN_AMP = 0.12;
 const PEAK_AMP = 0.44;
 
 /**
+ * How hard the mic drives the shape, as a fraction of the raw response. The
+ * idle breathe and the floor amplitudes are deliberately left alone, so turning
+ * this down calms the reaction to speech without making the blob look frozen.
+ * 1 restores the original, twitchier behaviour.
+ */
+const REACTIVITY = 0.38;
+
+/**
  * Camera framing. FIT is the half-extent of the view at the blob's centre
  * plane, in blob radii — it is what decides how much of the container the
  * blob fills, with just enough headroom that a shout does not clip the
@@ -504,25 +512,33 @@ export function VoiceBlob({
       const onset = Math.min(1, Math.max(0, level - previous) * 14);
       beat = Math.max(beat * Math.exp(-7 * dt), onset);
 
-      const floorAmp = isListening ? LISTEN_AMP : IDLE_AMP;
-      flow += dt * (0.3 + level * 1.7);
-      rotY += dt * (0.13 + level * 0.85);
-      rotX += dt * (0.05 + level * 0.3);
+      // Everything the mic drives goes through these two, so REACTIVITY is the
+      // single dial for how excitable the blob is.
+      const drive = level * REACTIVITY;
+      const kick = beat * REACTIVITY;
 
-      gl.uniform1f(uRadius, 1 + level * 0.12 + beat * 0.05);
-      gl.uniform1f(uAmp, floorAmp + (PEAK_AMP - floorAmp) * level);
-      gl.uniform1f(uDetailAmp, 0.03 + (audio?.high ?? 0) * 0.14 + beat * 0.05);
-      gl.uniform1f(uFreq, 1.05 + (audio?.mid ?? 0) * 0.55);
+      const floorAmp = isListening ? LISTEN_AMP : IDLE_AMP;
+      flow += dt * (0.3 + drive * 1.7);
+      rotY += dt * (0.13 + drive * 0.85);
+      rotX += dt * (0.05 + drive * 0.3);
+
+      gl.uniform1f(uRadius, 1 + drive * 0.12 + kick * 0.05);
+      gl.uniform1f(uAmp, floorAmp + (PEAK_AMP - floorAmp) * drive);
+      gl.uniform1f(
+        uDetailAmp,
+        0.03 + (audio?.high ?? 0) * 0.14 * REACTIVITY + kick * 0.05,
+      );
+      gl.uniform1f(uFreq, 1.05 + (audio?.mid ?? 0) * 0.55 * REACTIVITY);
       gl.uniform1f(uFlow, flow);
-      gl.uniform1f(uEnergy, level);
+      gl.uniform1f(uEnergy, drive);
 
       // Two out-of-phase sines per axis so the drift never visibly repeats.
       const wanderX =
         Math.sin(elapsed * 0.53) * 0.6 + Math.sin(elapsed * 0.21 + 1.7) * 0.4;
       const wanderY =
         Math.cos(elapsed * 0.41) * 0.5 + Math.cos(elapsed * 0.17 + 0.6) * 0.3;
-      const reach = 0.12 * (1 + level * 1.5);
-      const follow = 1 - Math.exp(-(2.5 + level * 4) * dt);
+      const reach = 0.12 * (1 + drive * 1.5);
+      const follow = 1 - Math.exp(-(2.5 + drive * 4) * dt);
       offsetX += ((wanderX + pointerX * 0.5) * reach - offsetX) * follow;
       offsetY += ((wanderY + pointerY * 0.45) * reach - offsetY) * follow;
       gl.uniform3f(uOffset, offsetX, offsetY, -distance);

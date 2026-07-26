@@ -8,6 +8,7 @@
  * land.
  */
 
+import type { AvailabilitySource, AvailabilityStatus } from "./availability.js";
 import type { ContractEventMessage } from "./identity-money.js";
 import type { ProviderPingDto } from "./marketplace.js";
 
@@ -60,7 +61,10 @@ export interface PingAnsweredEvent {
 
 export interface PresenceChangedEvent {
   providerId: string;
+  /** Convenience mirror of `status === "online"`. */
   isOnline: boolean;
+  status: AvailabilityStatus;
+  source: AvailabilitySource;
   at: string;
 }
 

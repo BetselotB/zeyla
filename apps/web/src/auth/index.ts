@@ -2,6 +2,7 @@ export { AuthProvider, useAuth, type AuthStatus, type AuthContextValue } from ".
 export { AuthCallbackPage } from "./AuthCallbackPage";
 export { AuthSplash } from "./AuthSplash";
 export { RequireOnboarding } from "./RequireOnboarding";
+export { RoleLanding } from "./RoleLanding";
 export { VerifiedBadge } from "./VerifiedBadge";
 export {
   API_BASE,

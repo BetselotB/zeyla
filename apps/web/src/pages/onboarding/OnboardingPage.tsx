@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import type { AuthUser, KycStatus, ProviderProfileInput } from "@zeyla/shared";
+import type { AuthUser, KycStatus, ProviderProfileInput, UserRole } from "@zeyla/shared";
 import { AuthSplash } from "../../auth/AuthSplash";
 import { useAuth } from "../../auth/AuthProvider";
 import { VerifiedBadge } from "../../auth/VerifiedBadge";
@@ -17,6 +17,7 @@ import { KycUploadStep } from "./components/KycUploadStep";
 import { OtpStep } from "./components/OtpStep";
 import { PhoneStep } from "./components/PhoneStep";
 import { ProviderProfileForm } from "./components/ProviderProfileForm";
+import { RoleStep } from "./components/RoleStep";
 import "./OnboardingPage.css";
 
 type Step =
@@ -26,7 +27,7 @@ type Step =
   | "email"
   | "kycUpload"
   | "kycStatus"
-  | "providerPrompt"
+  | "role"
   | "providerProfile"
   | "done";
 
@@ -38,7 +39,7 @@ const PHASE_BY_STEP: Record<Step, number> = {
   email: 0,
   kycUpload: 1,
   kycStatus: 1,
-  providerPrompt: 2,
+  role: 2,
   providerProfile: 2,
   done: 2,
 };
@@ -56,7 +57,7 @@ function resumeStep(user: AuthUser): Step {
   // Chapa rejects a checkout with no receipt address, so an account that came
   // in by phone has to supply one before it can pay for anything.
   if (!user.email) return "email";
-  if (user.kycStatus === "verified") return "providerPrompt";
+  if (user.kycStatus === "verified") return "role";
   if (user.kycStatus === "manual_review") return "kycStatus";
   return "kycUpload";
 }
@@ -89,7 +90,13 @@ export function OnboardingPage() {
 
   // Whoever sent us here — the route guard passes the page it blocked, so
   // finishing signup returns the user to what they were actually after.
-  const destination = (location.state as { from?: string } | null)?.from ?? "/discovery";
+  // Failing that, each role gets its own home: a provider's is the availability
+  // switch, because until they turn it on nothing else in the app does anything
+  // for them.
+  const isProvider = user?.role === "provider";
+  const destination =
+    (location.state as { from?: string } | null)?.from ??
+    (isProvider ? "/provider" : "/discovery");
 
   useEffect(() => {
     if (status === "loading") return;
@@ -129,6 +136,19 @@ export function OnboardingPage() {
       setIsSubmitting(false);
     }
   }, [finishOnboarding]);
+
+  /**
+   * "Customer" is the absence of a provider profile rather than a role write of
+   * its own — the API promotes an account to `provider` when the profile is
+   * created, so choosing customer just finishes onboarding.
+   */
+  const handleRoleContinue = (role: UserRole) => {
+    if (role === "provider") {
+      setStep("providerProfile");
+      return;
+    }
+    void goToDone();
+  };
 
   const handlePhoneSubmit = async (fullPhone: string) => {
     setError(null);
@@ -248,9 +268,9 @@ export function OnboardingPage() {
       subtitle: "Add a government-issued ID and a selfie. This is what keeps Zeyla trusted for everyone.",
     },
     kycStatus: kycCopy[kycStatus],
-    providerPrompt: {
-      title: "Want to offer services?",
-      subtitle: "Set up a provider profile to start receiving job requests, or skip and do it later.",
+    role: {
+      title: "How will you use Zeyla?",
+      subtitle: "Pick the one that fits you today — you can add the other later.",
     },
     providerProfile: {
       title: "Set up your profile",
@@ -258,7 +278,9 @@ export function OnboardingPage() {
     },
     done: {
       title: "You're all set",
-      subtitle: "You can now find trusted providers nearby and pay safely through escrow.",
+      subtitle: isProvider
+        ? "Your profile is live. Turn on availability whenever you're ready and jobs nearby will come to you."
+        : "You can now find trusted providers nearby and pay safely through escrow.",
     },
   };
 
@@ -268,7 +290,7 @@ export function OnboardingPage() {
       : step === "phone"
         ? "account"
         : step === "providerProfile"
-          ? "providerPrompt"
+          ? "role"
           : null;
 
   return (
@@ -339,28 +361,11 @@ export function OnboardingPage() {
         {step === "kycUpload" && <KycUploadStep isSubmitting={isSubmitting} error={error} onSubmit={handleKycSubmit} />}
 
         {step === "kycStatus" && (
-          <KycStatusScreen status={kycStatus} onResubmit={() => setStep("kycUpload")} onContinue={() => setStep("providerPrompt")} />
+          <KycStatusScreen status={kycStatus} onResubmit={() => setStep("kycUpload")} onContinue={() => setStep("role")} />
         )}
 
-        {step === "providerPrompt" && (
-          <div className="onboarding__form">
-            <button className="onboarding__button" type="button" onClick={() => setStep("providerProfile")}>
-              Set up provider profile
-            </button>
-            <button
-              className="onboarding__button onboarding__button--secondary"
-              type="button"
-              disabled={isSubmitting}
-              onClick={() => void goToDone()}
-            >
-              Not now
-            </button>
-            {error && (
-              <p className="onboarding__notice onboarding__notice--error" role="alert">
-                {error}
-              </p>
-            )}
-          </div>
+        {step === "role" && (
+          <RoleStep isSubmitting={isSubmitting} error={error} onContinue={handleRoleContinue} />
         )}
 
         {step === "providerProfile" && (
@@ -384,7 +389,7 @@ export function OnboardingPage() {
               type="button"
               onClick={() => navigate(destination, { replace: true })}
             >
-              Find services near you
+              {isProvider ? "Go to your dashboard" : "Find services near you"}
             </button>
           </div>
         )}

@@ -20,7 +20,7 @@ function BlobPlaceholder() {
   );
 }
 
-type VoicePhase = "listening" | "transcribing" | "understanding";
+type VoicePhase = "listening" | "transcribing" | "understanding" | "ready";
 
 interface VoiceListeningProps {
   phase: VoicePhase;
@@ -35,7 +35,16 @@ const PHASE_COPY: Record<VoicePhase, { label: string; title: string }> = {
     label: "Understanding your problem",
     title: "Understanding…",
   },
+  ready: { label: "Got it", title: "Got it" },
 };
+
+function CloseIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M4 4l8 8M12 4l-8 8" />
+    </svg>
+  );
+}
 
 function formatDuration(totalSeconds: number) {
   const minutes = Math.floor(totalSeconds / 60);
@@ -108,11 +117,11 @@ export function VoiceListening({ phase, stream, onStop }: VoiceListeningProps) {
 
       {listening && (
         <button
-          ref={stopRef}
           type="button"
           className="z-voice-stop-surface"
           onClick={onStop}
           aria-label="Stop recording and transcribe"
+          tabIndex={-1}
         />
       )}
 
@@ -122,9 +131,27 @@ export function VoiceListening({ phase, stream, onStop }: VoiceListeningProps) {
         </Suspense>
 
         {listening ? (
-          <RecordingTimer />
+          <>
+            <RecordingTimer />
+            <button
+              ref={stopRef}
+              type="button"
+              className="z-voice-close"
+              onClick={onStop}
+              aria-label="Stop recording and transcribe"
+            >
+              <CloseIcon />
+            </button>
+          </>
         ) : (
-          <p className="z-voice-phase">{copy.title}</p>
+          <div className="z-voice-phase-group">
+            {phase === "ready" && (
+              <span className="z-voice-done" aria-hidden="true">
+                ✓
+              </span>
+            )}
+            <p className="z-voice-phase">{copy.title}</p>
+          </div>
         )}
       </div>
     </div>

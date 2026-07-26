@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { SERVICE_CATEGORIES, SUB_CITIES, URGENCY_LEVELS } from "@zeyla/shared";
+import {
+  AVAILABILITY_STATUSES,
+  SERVICE_CATEGORIES,
+  SUB_CITIES,
+  URGENCY_LEVELS,
+} from "@zeyla/shared";
 
 export const latSchema = z.coerce.number().min(-90).max(90);
 export const lngSchema = z.coerce.number().min(-180).max(180);
@@ -61,6 +66,35 @@ export const providerProfileSchema = z
     message: "priceMax must be greater than or equal to priceMin",
     path: ["priceMax"],
   });
+
+/**
+ * The "go online" toggle. `busy` is accepted from a client so a provider can
+ * step away mid-shift without ending it, but the server sets it too when a job
+ * is accepted.
+ *
+ * Position is optional and travels with the toggle rather than in a separate
+ * call: a provider who moved since onboarding should become discoverable where
+ * they actually are, in one round trip, on the tap that matters.
+ */
+export const setAvailabilitySchema = z.object({
+  status: z.enum(AVAILABILITY_STATUSES),
+  lat: latSchema.optional(),
+  lng: lngSchema.optional(),
+  serviceRadiusMeters: z.coerce.number().int().min(500).max(50_000).optional(),
+});
+
+export const heartbeatSchema = z.object({
+  lat: latSchema.optional(),
+  lng: lngSchema.optional(),
+});
+
+/** Public: how many providers near this point are actually online right now. */
+export const nearbyAvailabilitySchema = z.object({
+  lat: latSchema,
+  lng: lngSchema,
+  radiusMeters: z.coerce.number().int().min(100).max(50_000).default(5_000),
+  category: optionalText(40),
+});
 
 export const createRequestSchema = z.object({
   category: z.string().trim().min(2).max(40),

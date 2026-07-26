@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { getContractForRequest } from "../../../escrow";
 import { createContract, fundContract } from "../api";
 import type { Booking } from "../types";
 
@@ -25,9 +26,10 @@ function humanise(slug: string) {
  * wraps Chapa's initialize call server-side) — the browser only ever receives
  * a checkoutUrl to redirect to, never a Chapa key.
  *
- * The amount is editable because no endpoint carries an agreed price yet (see
- * the TODO in useBooking.ts). When one exists, prefill it and make this
- * read-only rather than asking the customer to retype what was agreed.
+ * The amount is prefilled from the provider's published price range and stays
+ * editable, because that range is an estimate rather than a quote for this
+ * job. If a real per-job quote ever exists, prefill from it and make this
+ * read-only instead of asking the customer to confirm a number.
  */
 export function BookingSummary({ booking, isReady, prefillEmail }: BookingSummaryProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -55,13 +57,36 @@ export function BookingSummary({ booking, isReady, prefillEmail }: BookingSummar
 
     setIsSubmitting(true);
     try {
-      const contract = await createContract({
-        requestId: booking.requestId,
-        providerId: booking.providerId,
-        agreedAmount: parsedAmount,
-        currency: booking.currency,
-        title: booking.description || humanise(booking.category),
-      });
+      // An abandoned checkout leaves an unfunded contract behind. Reusing it
+      // keeps one contract per job instead of stacking a new one every time
+      // the customer comes back — but only at the same price, since funding
+      // charges the contract's amount rather than whatever is in this field.
+      const existing = await getContractForRequest(booking.requestId).catch(
+        () => null,
+      );
+
+      if (existing?.payment?.isPaid) {
+        setError("This booking has already been paid for.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      const reusable =
+        existing?.contract?.status === "awaiting_escrow" &&
+        existing.contract.agreedAmount === parsedAmount
+          ? existing.contract
+          : null;
+
+      const contract =
+        reusable ??
+        (await createContract({
+          requestId: booking.requestId,
+          providerId: booking.providerId,
+          agreedAmount: parsedAmount,
+          currency: booking.currency,
+          title: booking.description || humanise(booking.category),
+        }));
+
       const returnUrl = `${window.location.origin}${window.location.pathname}?contract=${contract.id}`;
       const result = await fundContract(contract.id, { returnUrl, email: email.trim() });
       window.location.assign(result.checkoutUrl);

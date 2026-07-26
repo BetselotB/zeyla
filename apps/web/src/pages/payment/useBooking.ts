@@ -18,6 +18,19 @@ type BookingResult = {
 };
 
 /**
+ * A starting figure from the provider's published range — the midpoint,
+ * rounded to the nearest 10 birr so it reads as an estimate rather than as a
+ * precise quote nobody actually gave. Zero when they have published no range,
+ * which leaves the field empty for the customer to fill in.
+ */
+function suggestedAmount(min: number | null, max: number | null): number {
+  const low = min ?? max;
+  const high = max ?? min;
+  if (low === null || high === null || high <= 0) return 0;
+  return Math.round((low + high) / 2 / 10) * 10;
+}
+
+/**
  * Resolves what's being paid for from the URL.
  *
  * The hand-off is `?requestId=…` (plus optional `providerId`), matching the
@@ -26,10 +39,11 @@ type BookingResult = {
  * with the accepted request and derives the rest from the API rather than
  * trusting display values passed in a query string.
  *
- * TODO(mohammed): no endpoint carries an agreed price — ServiceRequestDto has
- * no amount field and accepting a ping doesn't set one — so `amount` is 0 here
- * unless an `?amount=` hint is passed, and the customer confirms it on the page.
- * If a quote/price field lands on the request or ping, read it here instead.
+ * No endpoint carries a per-job quote — accepting a ping deliberately does not
+ * set one — so the amount is seeded from the midpoint of the provider's own
+ * published price range and the customer confirms or edits it. An explicit
+ * `?amount=` hint always wins. If a real quote field ever lands on the request
+ * or the ping, read it here in preference to both.
  */
 export function useBooking(params: URLSearchParams): BookingResult {
   const requestId = params.get("requestId");
@@ -63,13 +77,15 @@ export function useBooking(params: URLSearchParams): BookingResult {
           return;
         }
 
-        // Best-effort: a missing name shouldn't block payment.
+        // Best-effort: a missing profile shouldn't block payment.
         let providerName = "Your provider";
+        let suggested = 0;
         try {
           const provider = await getProvider(providerId);
           if (provider.name) providerName = provider.name;
+          suggested = suggestedAmount(provider.priceMin, provider.priceMax);
         } catch {
-          /* keep the fallback label */
+          /* keep the fallback label and let the customer type the amount */
         }
         if (isCancelled) return;
 
@@ -82,7 +98,7 @@ export function useBooking(params: URLSearchParams): BookingResult {
             category: request.category,
             description: request.description ?? "",
             addressLabel: request.addressLabel,
-            amount: amountHint > 0 ? amountHint : 0,
+            amount: amountHint > 0 ? amountHint : suggested,
             currency,
           },
         });

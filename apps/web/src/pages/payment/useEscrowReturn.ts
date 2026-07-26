@@ -17,8 +17,18 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
  *
  * See docs/api/identity-money.md.
  */
-export function useEscrowReturn(contractId: string): EscrowReturnState {
+export interface EscrowReturn {
+  state: EscrowReturnState;
+  /**
+   * Where to send the customer next, built from the contract rather than from
+   * the URL they came back on — Chapa's redirect carries no request id.
+   */
+  trackingHref: string;
+}
+
+export function useEscrowReturn(contractId: string): EscrowReturn {
   const [state, setState] = useState<EscrowReturnState>("checking");
+  const [trackingHref, setTrackingHref] = useState("/tracking");
 
   useEffect(() => {
     let isCancelled = false;
@@ -31,6 +41,12 @@ export function useEscrowReturn(contractId: string): EscrowReturnState {
         try {
           const contract = await getContract(contractId);
           if (isCancelled) return;
+
+          if (contract.requestId) {
+            setTrackingHref(
+              `/tracking?requestId=${contract.requestId}&providerId=${contract.providerId}`,
+            );
+          }
 
           if (contract.status === "escrowed" || contract.status === "active" || contract.status === "completed") {
             setState("escrowed");
@@ -56,5 +72,5 @@ export function useEscrowReturn(contractId: string): EscrowReturnState {
     };
   }, [contractId]);
 
-  return state;
+  return { state, trackingHref };
 }

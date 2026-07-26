@@ -3,7 +3,10 @@ import type {
   ContractStatus,
   EscrowLedgerEntry,
   FundContractResponse,
+  JobPaymentSummary,
+  RequestContractResponse,
 } from "@zeyla/shared";
+import { toJobPaymentSummary } from "@zeyla/shared";
 import { env } from "../../config/env.js";
 import type { UserRow } from "../auth/repo.js";
 import {
@@ -126,10 +129,55 @@ export async function listContracts(user: UserRow): Promise<Contract[]> {
   return repo.listContractsForParty(user.id);
 }
 
+/**
+ * "Has this job been paid for?" — the question both the customer's tracking
+ * screen and the provider's job view ask.
+ *
+ * Answers with null rather than 404 when there is no contract yet: not having
+ * started checkout is a normal state for an accepted request, not an error.
+ */
+export async function getContractForRequest(
+  requestId: string,
+  user: UserRow,
+): Promise<RequestContractResponse> {
+  const contract = await repo.findContractByRequest({
+    requestId,
+    partyId: user.id,
+  });
+
+  return {
+    contract,
+    payment: contract ? toJobPaymentSummary(contract) : null,
+  };
+}
+
 export async function getContractEvents(contractId: string, user: UserRow) {
   const contract = await loadContract(contractId);
   assertParticipant(contract, user.id);
   return repo.listContractEvents(contractId);
+}
+
+/**
+ * Payment state for many requests at once, keyed by request id.
+ *
+ * Exported for the marketplace module's provider inbox, so a provider sees
+ * "customer has paid" on the job card without this module having to know what
+ * a ping is, and without marketplace reaching into the escrow tables itself.
+ * Requests with no contract are simply absent from the map.
+ */
+export async function paymentSummariesByRequest(input: {
+  requestIds: string[];
+  partyId: string;
+}): Promise<Map<string, JobPaymentSummary>> {
+  const contracts = await repo.listContractsForRequests(input);
+  const byRequest = new Map<string, JobPaymentSummary>();
+
+  for (const contract of contracts) {
+    if (contract.requestId) {
+      byRequest.set(contract.requestId, toJobPaymentSummary(contract));
+    }
+  }
+  return byRequest;
 }
 
 /** Step 1 of funding: ask Chapa for a checkout URL and park a pending ledger row. */

@@ -2,6 +2,7 @@ import type { EscrowReturnState } from "../useEscrowReturn";
 
 type EscrowReturnScreenProps = {
   state: EscrowReturnState;
+  trackingHref: string;
 };
 
 /**
@@ -10,7 +11,7 @@ type EscrowReturnScreenProps = {
  * truth per state; this only renders the badge and whatever the user can do
  * next. Polling lives in useEscrowReturn.
  */
-export function EscrowReturnScreen({ state }: EscrowReturnScreenProps) {
+export function EscrowReturnScreen({ state, trackingHref }: EscrowReturnScreenProps) {
   if (state === "checking") {
     return (
       <div className="payment__form">
@@ -27,7 +28,7 @@ export function EscrowReturnScreen({ state }: EscrowReturnScreenProps) {
         <div className="payment__status">
           <span className="payment__status-icon">✓</span>
         </div>
-        <a className="payment__button" href="/tracking">
+        <a className="payment__button" href={trackingHref}>
           Track this job
         </a>
       </div>

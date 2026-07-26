@@ -519,8 +519,86 @@ Returns the `POST /requests/:id/pings` payload plus the ranking that chose them:
 
 - 400 `provider_not_eligible` — the named provider is the wrong trade, outside
   the radius, or below the trust floor. `data.details` says which.
+- 409 `provider_offline` — eligible, but not accepting jobs right now. Browsing
+  shows offline providers on purpose; pinging one is what is refused.
 - 404 `matching_provider_not_found` — nobody nearby can take this job.
 - Emergency requests get a 120-second ping expiry instead of 300.
+
+---
+
+# Availability
+
+The provider's "go online" switch, and the customer-facing count that mirrors
+it.
+
+`providers.is_online` — what `GET /providers?onlineOnly=true` and the ping
+fan-out filter on — is **derived** from `availability_status` by a database
+trigger (migration 007). It cannot be written directly. Three states:
+
+| Status | Discoverable | Receives pings | Meaning |
+| --- | --- | --- | --- |
+| `offline` | no | no | Not working. |
+| `online` | yes | yes | Taking jobs. |
+| `busy` | no | no | Mid-job. Set by the server on ping accept, cleared when the contract completes or is disputed. |
+
+A socket connection no longer sets any of this. Connecting and disconnecting
+only refresh `last_seen_at`, so closing a tab does not end a shift and opening
+one does not start it.
+
+## GET /api/marketplace/providers/me/availability
+
+Auth. Returns `{ availability: ProviderAvailability }`.
+
+## PUT /api/marketplace/providers/me/availability
+
+Auth. The toggle.
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `status` | enum | **required** — `offline` \| `online` \| `busy` |
+| `lat` / `lng` | number | Optional. Moves the provider's base point, so the radius follows them. |
+| `serviceRadiusMeters` | int | Optional. 500..50000. |
+
+Idempotent: re-sending the current status refreshes position and heartbeat
+without opening a second stretch in `provider_availability_log`, so a retried
+toggle cannot inflate the provider's online hours.
+
+Emits `presence:changed` to the provider's own rooms.
+
+- 404 `provider_profile_not_found` — the caller is a customer, not a provider.
+
+## POST /api/marketplace/providers/me/heartbeat
+
+Auth. Body `{ lat?, lng? }`. Refreshes `last_seen_at` and, if a point is sent,
+the provider's position. **Cannot change status** — only the provider can. Send
+roughly once a minute while online.
+
+## GET /api/marketplace/providers/me/dashboard
+
+Auth. Everything the provider home screen renders, in one round trip:
+`{ provider, availability, stats, demand, inbox }` (`ProviderDashboard`).
+
+- `stats` — today's money, jobs and pings, plus a 30-day acceptance rate.
+- `demand` — open requests in this provider's trade and radius (last 2 hours),
+  and how many rival providers are online covering the same area. Counted
+  whether or not this provider is online, so an offline one can see what they
+  are missing.
+- `inbox` — the 20 most recent pings, live and answered.
+
+## GET /api/marketplace/availability/nearby
+
+Open — the landing page calls it before anyone signs in.
+
+| Param | Type | Default |
+| --- | --- | --- |
+| `lat` / `lng` | number | **required** |
+| `radiusMeters` | int | `5000` |
+| `category` | string | `null` |
+
+Returns `NearbyAvailability`: `online`, `total`, `nearestOnlineMeters`,
+`medianTrustScore`. An offline provider is counted in `total` but not in
+`online`, which is what lets the intake screen say "nobody is online for this
+trade yet" before taking a request nobody would be pinged about.
 
 ## Types
 
@@ -529,4 +607,19 @@ re-declaring: `ProviderSummary`, `ProviderDetail`, `ProviderSearchQuery`,
 `ProviderSearchResult`, `ServiceRequestDto`, `PingDto`, `ProviderPingDto`,
 `PingFanoutResult`, `VoiceParseResult`, `VoiceTranscriptResult`, `ProviderMatch`,
 `MatchResult`, `ServiceCategory`, `Urgency`, `SpokenLanguage`,
-`SERVICE_CATEGORIES`, `URGENCY_LEVELS`, `SPOKEN_LANGUAGES`.
+`SERVICE_CATEGORIES`, `URGENCY_LEVELS`, `SPOKEN_LANGUAGES`,
+`AvailabilityStatus`, `ProviderAvailability`, `SetAvailabilityInput`,
+`ProviderDashboard`, `ProviderShiftStats`, `DemandSnapshot`,
+`NearbyAvailability`, `AVAILABILITY_STATUSES`.
+
+Smoke tests for this section (API must be running, `AUTH_OTP_PROVIDER=mock`):
+
+- `node smoke/availability.mjs` — the REST surface: toggling, search filtering,
+  ping fan-out, busy-on-accept, heartbeat.
+- `node smoke/availability-realtime.mjs` — the socket surface: an online
+  provider is told about a ping, an offline one is not, and a status change
+  reaches every open tab exactly once.
+
+Both accept `API_URL` if you are not on `http://localhost:4000`. Run them
+against your own instance if a teammate's `tsx watch` is restarting the shared
+one — a mid-run restart shows up as `UND_ERR_SOCKET`, not a real failure.

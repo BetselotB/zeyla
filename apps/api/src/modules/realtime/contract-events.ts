@@ -6,6 +6,7 @@ import {
 } from "@zeyla/shared";
 import type { Redis } from "ioredis";
 import { redis } from "../../lib/redis.js";
+import { releaseFromJob } from "../marketplace/availability.service.js";
 import { notify } from "../notifications/notifications.service.js";
 import { recomputeTrustScore } from "../trust/trust.service.js";
 import { contractRoom, emitToRooms, userRoom } from "./io.js";
@@ -95,7 +96,19 @@ async function handleContractEvent(raw: string): Promise<void> {
   await Promise.all([
     announce(event),
     event.toStatus === "completed" ? onContractCompleted(event) : null,
+    // The job that took them off the radar is over, so put them back on it
+    // without making them remember to.
+    isSettled(event.toStatus) ? releaseFromJob(event.providerId) : null,
   ]);
+}
+
+/**
+ * Terminal for the provider's calendar. A dispute leaves the money in escrow
+ * but the visit itself is over, so holding them off the radar while it is
+ * argued about would cost them the rest of the day's work.
+ */
+function isSettled(status: ContractStatus): boolean {
+  return status === "completed" || status === "disputed";
 }
 
 interface Announcement {

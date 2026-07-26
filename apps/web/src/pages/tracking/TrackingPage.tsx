@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useAuth } from "../../auth";
+import { JobPaymentPanel, useJobPayment, type PaymentViewer } from "../../escrow";
 import { getProvider, getRequest } from "../discovery/lib/api.js";
 import type { ProviderSummary, ServiceRequestDto } from "../discovery/lib/types.js";
 import { LiveMap, useSocketLocation } from "./components/LiveMap.js";
@@ -13,28 +15,44 @@ import "./tracking.css";
 
 const PROVIDER_START: [number, number] = [8.9806, 38.7578];
 
-function stepIndex(status: ServiceRequestDto["status"]) {
+/**
+ * Progress along the timeline, which tracks the job *and* the money: an
+ * accepted request that has not been paid for has not really started, so it
+ * does not advance past step 1 until escrow confirms the funds.
+ */
+function stepIndex(status: ServiceRequestDto["status"], isPaid: boolean) {
   if (status === "cancelled") return -1;
   if (status === "pending" || status === "pinged") return 0;
-  if (status === "accepted" || status === "in_progress") return 1;
-  if (status === "completed") return 2;
-  return 0;
+  if (status === "completed") return 3;
+  return isPaid ? 2 : 1;
 }
 
 export function TrackingPage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const requestId = params.get("requestId") ?? "";
   const providerId = params.get("providerId") ?? "";
-
-  const { position: providerPos, isLive } = useSocketLocation(
-    requestId,
-    PROVIDER_START,
-  );
 
   const [provider, setProvider] = useState<ProviderSummary | null>(null);
   const [request, setRequest] = useState<ServiceRequestDto | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const {
+    payment,
+    contract,
+    isLoading: isPaymentLoading,
+    isBusy,
+    start,
+    complete,
+  } = useJobPayment(requestId || null);
+
+  // GPS is filed against a contract, so there is nothing to follow until the
+  // customer has started checkout.
+  const { position: providerPos, isLive } = useSocketLocation(
+    contract?.id ?? null,
+    PROVIDER_START,
+  );
 
   useEffect(() => {
     if (!providerId) return;
@@ -77,10 +95,32 @@ export function TrackingPage() {
     ? [request.lat, request.lng]
     : [9.0054, 38.7636];
 
-  const currentStep = request ? stepIndex(request.status) : 0;
+  // Both parties open this same screen. Identity decides the wording, and it
+  // is read from the contract or the request rather than from the account
+  // role, so a provider paying for someone else's job still sees the payer's
+  // side of it.
+  const viewer: PaymentViewer = (() => {
+    if (payment && user) {
+      return payment.providerId === user.id ? "provider" : "customer";
+    }
+    if (request && user) {
+      return request.userId === user.id ? "customer" : "provider";
+    }
+    return user?.role === "provider" ? "provider" : "customer";
+  })();
+
+  const isPaid = payment?.isPaid === true;
+  const currentStep = request ? stepIndex(request.status, isPaid) : 0;
   const isDeclined = request?.status === "cancelled";
-  const isCompleted = request?.status === "completed";
+  const isCompleted =
+    request?.status === "completed" || payment?.status === "completed";
+  const hasAccepted =
+    request?.status === "accepted" || request?.status === "in_progress";
+
   const reviewsUrl = `/reviews?requestId=${requestId}&providerId=${providerId}`;
+  const payUrl = `/payment?requestId=${requestId}${
+    providerId ? `&providerId=${providerId}` : ""
+  }`;
 
   return (
     <div className="tracking-root">
@@ -93,10 +133,17 @@ export function TrackingPage() {
             <span className="tr-badge-dark">Live tracking</span>
             <span className="tr-badge-light">Real-time ›</span>
           </div>
-          <h1>Your provider is on the way</h1>
+          <h1>
+            {viewer === "provider"
+              ? isPaid
+                ? "You're covered — the customer has paid"
+                : "Your next job"
+              : "Your provider is on the way"}
+          </h1>
           <p>
-            Watch their location update in real time while your request is
-            active.
+            {viewer === "provider"
+              ? "Funds are held by Zeyla and released to you when the customer confirms the work is done."
+              : "Watch their location update in real time while your request is active."}
           </p>
           <div className="tr-request-pill">
             Request <strong>#{requestId.slice(0, 8)}</strong>
@@ -126,17 +173,24 @@ export function TrackingPage() {
               status={request?.status ?? null}
             />
 
-
-            <StatusTimeline
-              currentStep={currentStep}
-              isDeclined={isDeclined}
+            <JobPaymentPanel
+              payment={payment}
+              viewer={viewer}
+              canPay={hasAccepted}
+              payHref={payUrl}
+              isLoading={isPaymentLoading}
+              isBusy={isBusy}
+              onStart={start}
+              onComplete={complete}
             />
 
+            <StatusTimeline currentStep={currentStep} isDeclined={isDeclined} />
+
             <div className="tr-actions-card">
-              {(isCompleted || currentStep >= 1) && (
+              {(isCompleted || isPaid) && (
                 <button
                   type="button"
-                  className="z-btn z-btn-primary"
+                  className="z-btn z-btn-ghost"
                   onClick={() => navigate(reviewsUrl)}
                 >
                   {isCompleted ? "Leave a review" : "Preview review"}
@@ -145,17 +199,6 @@ export function TrackingPage() {
                       <path d="M6 9V3M6 3L3 6M6 3L9 6" />
                     </svg>
                   </span>
-                </button>
-              )}
-              {currentStep >= 1 && !isCompleted && (
-                <button
-                  type="button"
-                  className="z-btn z-btn-ghost"
-                  onClick={() =>
-                    setRequest((r) => (r ? { ...r, status: "completed" } : r))
-                  }
-                >
-                  Mark completed (demo)
                 </button>
               )}
               {currentStep === 0 && !isDeclined && (

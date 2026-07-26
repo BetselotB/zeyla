@@ -173,6 +173,58 @@ export async function listContractsForParty(
 }
 
 /**
+ * The contract covering a service request, for a caller who is a party to it.
+ *
+ * Scoped to the caller in SQL rather than fetched and checked afterwards, so a
+ * stranger guessing a request id gets "no contract" instead of a 403 that
+ * confirms one exists. Newest wins: re-booking a request after a refund leaves
+ * the older contract behind.
+ */
+export async function findContractByRequest(input: {
+  requestId: string;
+  partyId: string;
+}): Promise<Contract | null> {
+  const { rows } = await query<ContractRow>(
+    `SELECT ${CONTRACT_COLUMNS}
+       FROM contracts
+      WHERE request_id = $1
+        AND (user_id = $2 OR provider_id = $2)
+      ORDER BY created_at DESC
+      LIMIT 1`,
+    [input.requestId, input.partyId],
+  );
+  const row = rows[0];
+  if (!row) return null;
+  return toContract(row, await findLedgerByContract(row.id));
+}
+
+/**
+ * The newest contract per request, for a caller who is a party to it.
+ *
+ * Batched so the provider's inbox costs one round trip for the contracts
+ * rather than one per job.
+ */
+export async function listContractsForRequests(input: {
+  requestIds: string[];
+  partyId: string;
+}): Promise<Contract[]> {
+  if (input.requestIds.length === 0) return [];
+
+  const { rows } = await query<ContractRow>(
+    `SELECT DISTINCT ON (request_id) ${CONTRACT_COLUMNS}
+       FROM contracts
+      WHERE request_id = ANY($1::uuid[])
+        AND (user_id = $2 OR provider_id = $2)
+      ORDER BY request_id, created_at DESC`,
+    [input.requestIds, input.partyId],
+  );
+
+  return Promise.all(
+    rows.map(async (row) => toContract(row, await findLedgerByContract(row.id))),
+  );
+}
+
+/**
  * Compare-and-set on `status`. Returns null when the contract already moved on,
  * which is how concurrent webhook retries and double-clicks are made safe.
  */

@@ -112,6 +112,16 @@ export async function pairRequestWithProvider(
         hint: "Provider is not in range, not this trade, or below the trust floor.",
       });
     }
+    // Browsing shows offline providers on purpose — knowing who covers your
+    // area is useful even at midnight — but nobody who has switched off gets
+    // pinged. Answered here rather than as an empty fan-out so the customer is
+    // told to pick someone else instead of watching nothing happen.
+    if (!picked.provider.isOnline) {
+      throw ApiError.conflict("provider_offline", {
+        providerId: input.providerId,
+        hint: "This provider is not accepting jobs right now. Pick someone who is online.",
+      });
+    }
     chosen = [picked];
   } else {
     chosen = matches.slice(0, input.limit);

@@ -4,6 +4,8 @@
  * tracking pages. Change here, never re-declare on one side.
  */
 
+import type { JobPaymentSummary } from "./identity-money.js";
+
 /** Canonical category slugs. Addis AI parsing maps free text onto these. */
 export const SERVICE_CATEGORIES = [
   "plumber",
@@ -72,6 +74,13 @@ export interface ProviderSearchResult {
 
 export interface ProviderDetail extends ProviderSummary {
   recentReviews: ProviderReviewSummary[];
+  /**
+   * Indicative range from the provider's own profile, in ETB. Used to prefill
+   * the agreed price at checkout — it is a starting point for the customer to
+   * confirm, not a quote for this job.
+   */
+  priceMin: number | null;
+  priceMax: number | null;
 }
 
 /** Addis Ababa sub-cities, as the onboarding provider form offers them. */
@@ -189,6 +198,12 @@ export interface PingDto {
 export interface ProviderPingDto extends PingDto {
   request: ServiceRequestDto;
   customerName: string | null;
+  /**
+   * Escrow state for this job, so the provider can see the customer has paid
+   * without leaving the inbox. Null until the customer starts checkout, which
+   * is every ping that has not been accepted yet.
+   */
+  payment: JobPaymentSummary | null;
 }
 
 export interface PingFanoutResult {

@@ -78,11 +78,11 @@ function PaymentShell({ copy, children }: { copy: Copy; children: ReactNode }) {
 
 /** Return leg: kept separate so the polling hook only runs on this branch. */
 function EscrowReturn({ contractId }: { contractId: string }) {
-  const state = useEscrowReturn(contractId);
+  const { state, trackingHref } = useEscrowReturn(contractId);
 
   return (
     <PaymentShell copy={RETURN_COPY[state]}>
-      <EscrowReturnScreen state={state} />
+      <EscrowReturnScreen state={state} trackingHref={trackingHref} />
     </PaymentShell>
   );
 }

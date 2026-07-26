@@ -1,0 +1,159 @@
+/**
+ * Escrow status panel. Shared by the customer's tracking screen and the
+ * provider's job view, so it borrows the glass-panel treatment used across
+ * both rather than defining a look of its own.
+ */
+
+.esc-panel {
+  padding: 1.4rem 1.5rem;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.42);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition:
+    background 240ms ease,
+    border-color 240ms ease;
+}
+
+.esc-panel__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.esc-panel__label {
+  display: inline-block;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: rgba(17, 17, 17, 0.06);
+  color: rgba(17, 17, 17, 0.45);
+}
+
+.esc-panel__amount {
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.esc-panel__title {
+  margin: 0 0 0.4rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.esc-panel__body {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: rgba(17, 17, 17, 0.45);
+}
+
+.esc-panel__cta {
+  width: 100%;
+  justify-content: center;
+  margin-top: 1.1rem;
+}
+
+.esc-panel__note {
+  margin: 0.9rem 0 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  color: rgba(17, 17, 17, 0.38);
+}
+
+/* --- Tones ---------------------------------------------------------------- */
+
+.esc-panel--paid {
+  border-color: rgba(5, 150, 105, 0.28);
+  background: rgba(209, 250, 229, 0.55);
+}
+
+.esc-panel--paid .esc-panel__label {
+  background: #d1fae5;
+  color: #059669;
+}
+
+.esc-panel--pending {
+  border-color: rgba(180, 80, 30, 0.22);
+  background: rgba(251, 228, 213, 0.5);
+}
+
+.esc-panel--pending .esc-panel__label {
+  background: #fbe4d5;
+  color: #b4501e;
+}
+
+.esc-panel--attention {
+  border-color: rgba(220, 38, 38, 0.24);
+  background: rgba(254, 226, 226, 0.5);
+}
+
+.esc-panel--attention .esc-panel__label {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+/* --- Inline badge, for the provider's job list ---------------------------- */
+
+.esc-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: rgba(17, 17, 17, 0.06);
+  color: rgba(17, 17, 17, 0.45);
+}
+
+.esc-badge--paid {
+  background: #d1fae5;
+  color: #059669;
+}
+
+.esc-badge--awaiting {
+  background: #fbe4d5;
+  color: #b4501e;
+}
+
+.esc-badge--attention {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.esc-badge__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.esc-badge--paid .esc-badge__dot {
+  animation: esc-pulse 2s ease-in-out infinite;
+}
+
+@keyframes esc-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .esc-badge--paid .esc-badge__dot {
+    animation: none;
+  }
+}

@@ -1,8 +1,12 @@
 const STEPS = [
   { key: "sent", label: "Request sent", desc: "Waiting for provider to respond" },
-  { key: "accepted", label: "Accepted", desc: "Provider is heading your way" },
-  { key: "completed", label: "Completed", desc: "Job done — time to review" },
+  { key: "accepted", label: "Accepted", desc: "Provider took the job" },
+  { key: "paid", label: "Payment secured", desc: "Funds held in Zeyla escrow" },
+  { key: "completed", label: "Completed", desc: "Job done — payment released" },
 ] as const;
+
+/** Index of the step the payment lands on, for callers computing progress. */
+export const PAID_STEP = 2;
 
 interface StatusTimelineProps {
   currentStep: number;

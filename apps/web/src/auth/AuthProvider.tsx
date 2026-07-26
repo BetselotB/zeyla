@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { closeSocket } from "../realtime/socket";
 import { completeOnboarding, getMe, logout, syncSession } from "./api";
 import {
   cacheSupabaseToken,
@@ -170,6 +171,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await logout();
         clearStoredToken();
         if (supabase) await supabase.auth.signOut();
+        // The socket authenticated as the outgoing user and sits in their
+        // rooms. Dropping it forces the next sign-in to re-handshake rather
+        // than inheriting the last account's notifications.
+        closeSocket();
         setUser(null);
         setStatus("anonymous");
       },

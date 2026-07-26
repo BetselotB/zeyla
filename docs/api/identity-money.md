@@ -233,6 +233,52 @@ newest first, capped at 100.
 
 Errors: `contract_not_found` (404), `not_a_party_to_this_contract` (403).
 
+### `GET /api/escrow/requests/:requestId/contract`
+
+Auth required. "Has this job been paid for?" — keyed by **service request**
+rather than contract, because the request id is what both sides already hold:
+the customer arrives from discovery with it and the provider gets it on the
+ping, while neither learns the contract id until checkout has started.
+
+```jsonc
+// data — before checkout
+{ "contract": null, "payment": null }
+
+// data — after Chapa's webhook confirms the money
+{
+  "contract": { /* the full Contract object, ledger included */ },
+  "payment": {
+    "contractId": "da97d49a-...",
+    "requestId": "f61c46b5-...",
+    "userId": "6e673ffa-...",       // the payer
+    "providerId": "61ef3551-...",
+    "status": "escrowed",            // ContractStatus
+    "escrowStatus": "held",          // EscrowStatus, null before checkout
+    "amount": 850,
+    "currency": "ETB",
+    "isPaid": true,                  // read this one
+    "paidAt": "2026-07-25T23:50:36.444Z",
+    "releasedAt": null
+  }
+}
+```
+
+`payment` is the flattened view both dashboards render, so the customer and the
+provider cannot disagree about where the money is. **`isPaid` is the flag to
+key off**: true once the ledger has left `pending`, which covers `held` *and*
+`released` — a completed job that has already paid out is still "the customer
+paid". It is never set by a browser redirect; only the signed webhook moves the
+ledger.
+
+Scoped to the caller in SQL. A user who is neither party gets
+`{ "contract": null, "payment": null }` rather than a 403, so a stranger
+guessing request ids cannot confirm a contract exists. Never 404s — no contract
+yet is the normal state for a freshly accepted request, not an error.
+
+The same summary is embedded per job on `ProviderPingDto.payment` in the
+provider dashboard (`GET /api/marketplace/providers/me/dashboard`), so the
+inbox can badge a job without a second call.
+
 ### `POST /api/escrow/contracts/:id/fund`
 
 Auth required, **payer only**. Contract must be `awaiting_escrow`.
@@ -323,6 +369,46 @@ HMAC signature over the raw body. `/api/escrow/admin/*` and
 `/api/auth/admin/*` need the `x-admin-key` header and exist for manual dispute
 resolution — there is no admin UI planned. `/api/escrow/dev/*` only exists
 while `DEMO_MODE=true`.
+
+### Registering the webhook with Chapa
+
+In the Chapa dashboard, under **Settings → Webhooks**:
+
+| Field | Value |
+| --- | --- |
+| Webhook URL | `{PUBLIC_API_URL}/api/escrow/webhooks/chapa` |
+| Secret hash | any random string — put the same value in `CHAPA_WEBHOOK_SECRET` |
+
+`PUBLIC_API_URL` must be publicly reachable, so Chapa cannot deliver to a
+laptop on localhost. Tunnel it (`ngrok http 4000`) and set `PUBLIC_API_URL` to
+the tunnel origin, or point it at the deployed API. The same value is used to
+build the `callback_url` sent to Chapa on initialize, so it has to be right in
+both places or the webhook simply never arrives.
+
+What the handler does, in order — a delivery that fails any step changes
+nothing:
+
+1. Verifies HMAC-SHA256 over the **raw bytes** against `CHAPA_WEBHOOK_SECRET`.
+   Accepts `Chapa-Signature` (body-bound, preferred) or `x-chapa-signature`.
+   A bad signature is `401`; everything else answers `200` so Chapa stops
+   retrying a delivery we have deliberately ignored.
+2. Records the payload hash in `chapa_webhook_events`. A repeat delivery of the
+   same bytes is dropped as `duplicate_delivery`.
+3. Looks up the ledger row by `tx_ref`. Unknown or already-settled refs are
+   ignored.
+4. **With a live key, independently re-verifies against
+   `GET /transaction/verify/:tx_ref` and compares the amount.** A valid
+   signature only proves the message came from Chapa; this proves the money
+   arrived. A signed webhook for an unpaid transaction returns
+   `chapa_reports_unpaid` and moves nothing.
+5. Moves the ledger `pending → held` and the contract
+   `awaiting_escrow → escrowed`, both compare-and-set, then publishes the
+   transition on Redis.
+
+That publish is what lights up both dashboards: `contract-events.ts` fans it
+out as a `contract:status` socket event to the contract room and to **both
+parties' user rooms**, and writes a notification for each side. Neither party
+has to reload, and neither is trusted to report the payment themselves.
 
 ## Status reference
 

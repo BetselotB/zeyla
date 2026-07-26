@@ -162,6 +162,72 @@ export interface Contract {
   ledger: EscrowLedgerEntry | null;
 }
 
+/**
+ * The payment state of one job, flattened for display.
+ *
+ * Both sides of a job need the same answer to "has this been paid for?", and
+ * neither should have to know that the answer is spread across a contract
+ * status and an escrow ledger status. `isPaid` is the single flag the UI keys
+ * off; the rest is there to explain it.
+ */
+export interface JobPaymentSummary {
+  contractId: string;
+  requestId: string | null;
+  /** The payer. */
+  userId: string;
+  providerId: string;
+  status: ContractStatus;
+  /** Null until the payer has started a checkout. */
+  escrowStatus: EscrowStatus | null;
+  amount: number;
+  currency: string;
+  /**
+   * True once Chapa's webhook has confirmed the money is with us — held in
+   * escrow, or already released to the provider on completion. This is the
+   * flag that turns both dashboards green, and it is never set by a browser
+   * redirect: only the signed webhook moves the ledger off `pending`.
+   */
+  isPaid: boolean;
+  /** When the funds landed in escrow. */
+  paidAt: string | null;
+  /** Set once the job is done and the provider has been paid out. */
+  releasedAt: string | null;
+}
+
+/** Response of GET /api/escrow/requests/:requestId/contract. */
+export interface RequestContractResponse {
+  /** Null when the customer has not started checkout for this request yet. */
+  contract: Contract | null;
+  payment: JobPaymentSummary | null;
+}
+
+/**
+ * Flattens a contract into the shape both dashboards render.
+ *
+ * A contract can be `completed` with the ledger already `released`, which is
+ * still "the customer paid" — so this keys off the ledger having left
+ * `pending` rather than off the contract status, which goes on moving after
+ * the money has landed.
+ */
+export function toJobPaymentSummary(contract: Contract): JobPaymentSummary {
+  const ledger = contract.ledger;
+  const escrowStatus = ledger?.status ?? null;
+
+  return {
+    contractId: contract.id,
+    requestId: contract.requestId,
+    userId: contract.userId,
+    providerId: contract.providerId,
+    status: contract.status,
+    escrowStatus,
+    amount: contract.agreedAmount,
+    currency: contract.currency,
+    isPaid: escrowStatus === "held" || escrowStatus === "released",
+    paidAt: ledger?.heldAt ?? null,
+    releasedAt: ledger?.releasedAt ?? null,
+  };
+}
+
 export interface CreateContractBody {
   providerId: string;
   agreedAmount: number;

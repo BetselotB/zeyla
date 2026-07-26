@@ -1,5 +1,6 @@
 /** Shared domain types — keep API + web in sync */
 
+export * from "./availability.js";
 export * from "./marketplace.js";
 export * from "./notifications.js";
 export * from "./realtime.js";

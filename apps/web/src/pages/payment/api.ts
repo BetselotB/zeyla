@@ -179,6 +179,8 @@ export function getProvider(providerId: string): Promise<ProviderDetail> {
         completedContracts: 9,
         lastSeenAt: new Date().toISOString(),
         recentReviews: [],
+        priceMin: 600,
+        priceMax: 1100,
       };
     },
     "getProvider",

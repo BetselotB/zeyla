@@ -6,16 +6,13 @@ import { env } from "../../config/env.js";
 import { isUuid } from "../marketplace/lib/actor.js";
 import { ApiError } from "../marketplace/lib/errors.js";
 import { latSchema, lngSchema } from "../marketplace/schemas.js";
-import {
-  contractRoom,
-  providerRoom,
-  roomSize,
-  setIo,
-  userRoom,
-} from "./io.js";
+import { contractRoom, providerRoom, setIo, userRoom } from "./io.js";
 import { recordLocation } from "./location.service.js";
 import { getContractParties, isContractMember } from "./membership.js";
-import { setProviderPresence } from "./presence.service.js";
+import {
+  setProviderPresence,
+  touchProviderPresence,
+} from "./presence.service.js";
 import { identifySocket, type SocketIdentity } from "./socket-auth.js";
 import { startContractEventBridge } from "./contract-events.js";
 
@@ -61,7 +58,10 @@ export function attachRealtime(httpServer: HttpServer) {
     socket.join(userRoom(identity.userId));
     if (identity.role === "provider") {
       socket.join(providerRoom(identity.userId));
-      void setProviderPresence(identity.userId, true);
+      // Connecting proves the app is open, nothing more. Whether this provider
+      // is discoverable is the availability status they set, which survives
+      // both this connection and its loss.
+      void touchProviderPresence(identity.userId);
     }
 
     socket.on(REALTIME_EVENTS.JOIN_CONTRACT, (payload: unknown) => {
@@ -85,10 +85,11 @@ export function attachRealtime(httpServer: HttpServer) {
 
     socket.on("disconnect", () => {
       if (identity.role !== "provider") return;
-      // Other tabs may still be connected — only go offline on the last one.
-      void roomSize(providerRoom(identity.userId)).then((remaining) => {
-        if (remaining === 0) void setProviderPresence(identity.userId, false);
-      });
+      // Deliberately does not end the shift. A provider who tunnels into a lift
+      // has not gone off duty, and a customer pinging them a minute later is
+      // the behaviour they signed up for by staying online. `last_seen_at` is
+      // what tells anyone how long ago the app was last heard from.
+      void touchProviderPresence(identity.userId);
     });
   });
 

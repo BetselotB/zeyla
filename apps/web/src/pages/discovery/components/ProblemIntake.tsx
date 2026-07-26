@@ -37,11 +37,19 @@ function RefreshIcon() {
   );
 }
 
-function MicIcon() {
+function MicGlyph() {
   return (
-    <svg className="z-selector-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3">
-      <rect x="5.5" y="2" width="5" height="7" rx="2.5" />
-      <path d="M3 8a5 5 0 0010 0M8 13v2" />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+      <rect x="9" y="2.5" width="6" height="10" rx="3" />
+      <path d="M5 11a7 7 0 0014 0M12 18v3.5" />
+    </svg>
+  );
+}
+
+function StopGlyph() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+      <rect x="7.5" y="7.5" width="9" height="9" rx="2" />
     </svg>
   );
 }
@@ -106,6 +114,10 @@ export function ProblemIntake({ onResults }: ProblemIntakeProps) {
   const [transcribing, setTranscribing] = useState(false);
   /** Classifying straight off a recording, with the voice overlay still up. */
   const [understanding, setUnderstanding] = useState(false);
+  /** Brief "got it" beat so the overlay resolves before the summary replaces it. */
+  const [ready, setReady] = useState(false);
+  /** Typing is the fallback, so the textarea stays collapsed until it is wanted. */
+  const [typing, setTyping] = useState(false);
   const [loading, setLoading] = useState(false);
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -205,10 +217,18 @@ export function ProblemIntake({ onResults }: ProblemIntakeProps) {
       setTranscribing(false);
       setUnderstanding(true);
       await classifyInto(nextText);
+
+      // The summary is already built at this point. Holding the overlay for one
+      // beat on a confirmation turns a jump cut into a handoff.
+      setUnderstanding(false);
+      setReady(true);
+      await new Promise((resolve) => setTimeout(resolve, 620));
     } catch (err) {
       // Falls back to the textarea holding the transcript, so a failed classify
-      // costs the customer a tap rather than the whole recording.
+      // costs the customer a tap rather than the whole recording. Open the
+      // panel too — collapsed, the recovered transcript would be invisible.
       setError(readableError(err));
+      setTyping(true);
     } finally {
       stream.getTracks().forEach((t) => t.stop());
       stopRef.current = null;
@@ -216,6 +236,7 @@ export function ProblemIntake({ onResults }: ProblemIntakeProps) {
       setRecording(false);
       setTranscribing(false);
       setUnderstanding(false);
+      setReady(false);
     }
   }
 
@@ -262,9 +283,9 @@ export function ProblemIntake({ onResults }: ProblemIntakeProps) {
     }
   }
 
-  if (parse) {
+  if (parse && !ready) {
     return (
-      <>
+      <div className="z-handoff">
         {error && <div className="z-error">{error}</div>}
         <ClassificationCard
           parse={parse}
@@ -273,87 +294,127 @@ export function ProblemIntake({ onResults }: ProblemIntakeProps) {
           onConfirm={handleConfirm}
           loading={confirmLoading}
         />
-      </>
+      </div>
     );
   }
 
-  const busy = recording || transcribing || understanding;
+  const busy = recording || transcribing || understanding || ready;
 
   return (
     <>
       <section className="z-glass-card">
-        <div className="z-glass-inner">
-          <textarea
-            className="z-textarea"
-            placeholder={transcribing ? "Transcribing your recording…" : PLACEHOLDER}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            rows={5}
-            disabled={busy}
-          />
-          <div className="z-card-controls">
-            <div className="z-selectors">
-              <GlassSelect
-                icon={<PersonIcon />}
-                value={category}
-                options={CATEGORY_OPTIONS}
-                onChange={setCategory}
-                ariaLabel="Service category"
-              />
-              <GlassSelect
-                icon={<GlobeIcon />}
-                value={lang}
-                options={languageOptions}
-                onChange={(v) => setLang(v as LanguageCode)}
-                ariaLabel="Language"
-              />
-              <GlassSelect
-                icon={<RefreshIcon />}
-                value={urgency}
-                options={URGENCY_OPTIONS}
-                onChange={setUrgency}
-                ariaLabel="Urgency"
+        <div className="z-glass-inner z-intake">
+          <div className="z-intake-voice">
+            <button
+              type="button"
+              className={`z-voice-cta${recording ? " is-recording" : ""}`}
+              onClick={handleRecord}
+              onPointerEnter={prefetchVoiceBlob}
+              onFocus={prefetchVoiceBlob}
+              disabled={transcribing || understanding}
+              aria-label={recording ? "Stop recording" : "Start describing your problem out loud"}
+            >
+              <span className="z-voice-cta-halo" aria-hidden="true" />
+              <span className="z-voice-cta-core" aria-hidden="true">
+                {recording ? <StopGlyph /> : <MicGlyph />}
+              </span>
+            </button>
+
+            <p className="z-voice-cta-label">
+              {recording ? "Listening…" : transcribing ? "Transcribing…" : "Tap to speak"}
+            </p>
+            <p className="z-voice-cta-sub">
+              {recording
+                ? "Tap again when you're done"
+                : "Describe your problem out loud — Amharic, Afaan Oromo, or English"}
+            </p>
+          </div>
+
+          <div className="z-intake-options">
+            <GlassSelect
+              icon={<GlobeIcon />}
+              value={lang}
+              options={languageOptions}
+              onChange={(v) => setLang(v as LanguageCode)}
+              ariaLabel="Language"
+            />
+            <GlassSelect
+              icon={<PersonIcon />}
+              value={category}
+              options={CATEGORY_OPTIONS}
+              onChange={setCategory}
+              ariaLabel="Service category"
+            />
+            <GlassSelect
+              icon={<RefreshIcon />}
+              value={urgency}
+              options={URGENCY_OPTIONS}
+              onChange={setUrgency}
+              ariaLabel="Urgency"
+            />
+          </div>
+
+          <div className="z-intake-divider">
+            <span aria-hidden="true" />
+            <button
+              type="button"
+              className="z-intake-toggle"
+              onClick={() => setTyping((open) => !open)}
+              aria-expanded={typing}
+              disabled={busy}
+            >
+              {typing ? "Hide typing" : "or type it instead"}
+            </button>
+            <span aria-hidden="true" />
+          </div>
+
+          {typing && (
+            <div className="z-intake-text">
+              <textarea
+                className="z-textarea"
+                placeholder={PLACEHOLDER}
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                rows={4}
+                disabled={busy}
+                autoFocus
               />
               <button
                 type="button"
-                className={`z-selector z-mic-btn${recording ? " recording" : ""}`}
-                onClick={handleRecord}
-                onPointerEnter={prefetchVoiceBlob}
-                onFocus={prefetchVoiceBlob}
-                disabled={transcribing || understanding}
+                className="z-btn z-btn-primary"
+                onClick={handleSubmit}
+                disabled={loading || busy || !text.trim()}
               >
-                <MicIcon />
-                {recording ? "Stop" : transcribing ? "Transcribing…" : "Voice"}
+                {loading ? "Analyzing…" : "Find providers"}
+                {!loading && (
+                  <span className="z-btn-arrow" aria-hidden="true">
+                    <svg viewBox="0 0 12 12" strokeWidth="2">
+                      <path d="M6 9V3M6 3L3 6M6 3L9 6" />
+                    </svg>
+                  </span>
+                )}
               </button>
             </div>
-
-            <button
-              type="button"
-              className="z-btn z-btn-primary"
-              onClick={handleSubmit}
-              disabled={loading || busy}
-            >
-              {loading ? "Analyzing…" : "Find providers"}
-              {!loading && (
-                <span className="z-btn-arrow" aria-hidden="true">
-                  <svg viewBox="0 0 12 12" strokeWidth="2">
-                    <path d="M6 9V3M6 3L3 6M6 3L9 6" />
-                  </svg>
-                </span>
-              )}
-            </button>
-          </div>
+          )}
         </div>
         <p className="z-microcopy">
           {recording
             ? "Listening — tap stop when you are done"
-            : `Speak Amharic or Afaan Oromo · No payment required · ${label}`}
+            : `Voice first · No payment required · ${label}`}
         </p>
       </section>
       {error && <div className="z-error">{error}</div>}
       {busy && (
         <VoiceListening
-          phase={recording ? "listening" : transcribing ? "transcribing" : "understanding"}
+          phase={
+            recording
+              ? "listening"
+              : transcribing
+                ? "transcribing"
+                : ready
+                  ? "ready"
+                  : "understanding"
+          }
           stream={micStream}
           onStop={stopRecording}
         />

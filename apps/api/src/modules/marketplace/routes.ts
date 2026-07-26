@@ -1,5 +1,11 @@
 import { Router } from "express";
 import { requireAuth } from "../auth/middleware.js";
+import {
+  getAvailability,
+  getNearbyAvailability,
+  heartbeat,
+  setAvailability,
+} from "./availability.service.js";
 import { getProviderDetail, searchProviders } from "./discovery.service.js";
 import { requireActor } from "./lib/actor.js";
 import { handle } from "./lib/handle.js";
@@ -8,6 +14,7 @@ import {
   getOwnProviderProfile,
   upsertProviderProfile,
 } from "./profile.service.js";
+import { getProviderDashboard } from "./provider-home.service.js";
 import {
   fanoutPings,
   listProviderPings,
@@ -22,13 +29,16 @@ import {
 import {
   createRequestSchema,
   fanoutSchema,
+  heartbeatSchema,
   matchQuerySchema,
+  nearbyAvailabilitySchema,
   pairSchema,
   pingResponseSchema,
   providerDetailQuerySchema,
   providerPingsQuerySchema,
   providerProfileSchema,
   providerSearchSchema,
+  setAvailabilitySchema,
   transcribeSchema,
   uuidSchema,
   voiceParseSchema,
@@ -83,6 +93,67 @@ marketplaceRouter.get(
   handle(async (req) => {
     const provider = await getOwnProviderProfile(requireActor(req));
     return { provider };
+  }),
+);
+
+// --- Availability ------------------------------------------------------------
+// The provider's own "go online" switch. Registered before `/providers/:id` so
+// "me" is never parsed as an id.
+
+marketplaceRouter.get(
+  "/providers/me/availability",
+  requireAuth,
+  handle(async (req) => {
+    const availability = await getAvailability(requireActor(req).userId);
+    return { availability };
+  }),
+);
+
+/**
+ * Turn discoverability on or off. Idempotent, so a client retrying a toggle it
+ * is unsure landed cannot open a second shift.
+ */
+marketplaceRouter.put(
+  "/providers/me/availability",
+  requireAuth,
+  handle(async (req) => {
+    const actor = requireActor(req);
+    const input = setAvailabilitySchema.parse(req.body ?? {});
+    const availability = await setAvailability(actor.userId, input);
+    return { availability };
+  }),
+);
+
+/** Proof the app is still open. Cannot change status — only the provider can. */
+marketplaceRouter.post(
+  "/providers/me/heartbeat",
+  requireAuth,
+  handle(async (req) => {
+    const actor = requireActor(req);
+    const input = heartbeatSchema.parse(req.body ?? {});
+    const availability = await heartbeat(actor.userId, input);
+    return { availability };
+  }),
+);
+
+/** Everything the provider home screen renders. */
+marketplaceRouter.get(
+  "/providers/me/dashboard",
+  requireAuth,
+  handle(async (req) => getProviderDashboard(requireActor(req))),
+);
+
+/**
+ * Customer-facing mirror of the same switch: how many providers near a point
+ * are online right now, so the intake screen can say so before a request is
+ * collected that nobody would be pinged about. Open — this is what the landing
+ * page shows before anyone signs in.
+ */
+marketplaceRouter.get(
+  "/availability/nearby",
+  handle(async (req) => {
+    const params = nearbyAvailabilitySchema.parse(req.query);
+    return getNearbyAvailability(params);
   }),
 );
 

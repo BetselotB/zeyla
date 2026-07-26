@@ -8,8 +8,10 @@ import type {
 } from "@zeyla/shared";
 import { REALTIME_EVENTS } from "@zeyla/shared";
 import { query } from "../../db/client.js";
+import { paymentSummariesByRequest } from "../escrow/service.js";
 import { notify, notifyMany } from "../notifications/notifications.service.js";
 import { emitToProvider, emitToUser } from "../realtime/io.js";
+import { markBusy } from "./availability.service.js";
 import type { Actor } from "./lib/actor.js";
 import { ApiError } from "./lib/errors.js";
 import {
@@ -93,6 +95,7 @@ export async function fanoutPings(
            FROM providers p
            CROSS JOIN req r
           WHERE p.user_id = ANY($2::uuid[])
+            AND p.availability_status = 'online'
        )
        INSERT INTO pings (request_id, provider_id, distance_meters,
                           trust_score_at_ping, expires_at)
@@ -149,16 +152,36 @@ export async function fanoutPings(
   const skipped: PingFanoutResult["skipped"] = [];
   if (explicit) {
     const pinged = new Set(pings.map((p) => p.providerId));
-    const existing = await query<{ provider_id: string }>(
-      `SELECT provider_id FROM pings WHERE request_id = $1::uuid AND provider_id = ANY($2::uuid[])`,
+    // One read covers every reason a named provider can be missing from the
+    // insert above: they do not exist, they were already pinged for this
+    // request, or they are not online and so are not reachable at all.
+    const known = await query<{
+      provider_id: string;
+      availability_status: string;
+      already_pinged: boolean;
+    }>(
+      `SELECT p.user_id AS provider_id,
+              p.availability_status,
+              EXISTS (
+                SELECT 1 FROM pings x
+                 WHERE x.request_id = $1::uuid AND x.provider_id = p.user_id
+              ) AS already_pinged
+         FROM providers p
+        WHERE p.user_id = ANY($2::uuid[])`,
       [requestId, options.providerIds],
     );
-    const known = new Set(existing.rows.map((r) => r.provider_id));
+    const byId = new Map(known.rows.map((row) => [row.provider_id, row]));
+
     for (const id of options.providerIds!) {
       if (pinged.has(id)) continue;
+      const row = byId.get(id);
       skipped.push({
         providerId: id,
-        reason: known.has(id) ? "already_pinged" : "unknown_provider",
+        reason: !row
+          ? "unknown_provider"
+          : row.already_pinged
+            ? "already_pinged"
+            : "provider_offline",
       });
     }
   }
@@ -175,6 +198,8 @@ export async function fanoutPings(
         ...ping,
         request: updated,
         customerName,
+        // A job nobody has accepted cannot have been paid for yet.
+        payment: null,
       } satisfies ProviderPingDto);
     }
 
@@ -256,8 +281,16 @@ export async function listProviderPings(
     [actor.userId, filters.status ?? null, filters.limit],
   );
 
+  // Escrow owns the contract tables, so the money state is asked for rather
+  // than joined in here. One call for the whole page of pings.
+  const payments = await paymentSummariesByRequest({
+    requestIds: [...new Set(result.rows.map((row) => row.request_id))],
+    partyId: actor.userId,
+  });
+
   return result.rows.map((row) => ({
     ...toPingDto(row),
+    payment: payments.get(row.request_id) ?? null,
     request: toRequestDto({
       id: row.r_id,
       user_id: row.r_user_id,
@@ -330,6 +363,10 @@ export async function respondToPing(
       throw ApiError.conflict("request_not_open", { status: request.status });
     }
     request = await setRequestStatus(ping.requestId, "accepted");
+    // Committed to this job, so off the radar for new ones until it is done.
+    // Never fails the acceptance — availability is a display concern next to a
+    // job the provider has already taken.
+    await markBusy(ping.providerId);
   }
 
   const providerName = await getUserName(ping.providerId);

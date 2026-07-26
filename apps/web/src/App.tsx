@@ -1,9 +1,10 @@
-import { Navigate, Route, Routes } from "react-router-dom";
-import { AuthCallbackPage, RequireOnboarding } from "./auth";
+import { Route, Routes } from "react-router-dom";
+import { AuthCallbackPage, RequireOnboarding, RoleLanding } from "./auth";
 import { PricingPage, ProductPage, ProvidersPage, UseCasesPage } from "./pages/marketing";
 import { OnboardingPage } from "./pages/onboarding";
 import { PaymentPage } from "./pages/payment";
 import { DiscoveryPage } from "./pages/discovery";
+import { ProviderHomePage } from "./pages/provider";
 import { TrackingPage } from "./pages/tracking";
 import { ReviewsPage } from "./pages/reviews";
 
@@ -25,9 +26,10 @@ export default function App() {
       <Route path="/pricing" element={<PricingPage />} />
 
       <Route element={<RequireOnboarding />}>
-        <Route path="/" element={<Navigate to="/discovery" replace />} />
+        <Route path="/" element={<RoleLanding />} />
         <Route path="/payment" element={<PaymentPage />} />
         <Route path="/discovery" element={<DiscoveryPage />} />
+        <Route path="/provider" element={<ProviderHomePage />} />
         <Route path="/tracking" element={<TrackingPage />} />
         <Route path="/reviews" element={<ReviewsPage />} />
       </Route>

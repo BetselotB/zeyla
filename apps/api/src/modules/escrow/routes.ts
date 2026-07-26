@@ -86,6 +86,33 @@ escrowRouter.get(
   }),
 );
 
+/**
+ * The payment state of a service request, for either party to it.
+ *
+ * Keyed by request rather than contract because that is the id both sides
+ * already hold: the customer arrives from discovery with it and the provider
+ * gets it on the ping, while neither learns the contract id until checkout has
+ * started.
+ */
+escrowRouter.get(
+  "/requests/:requestId/contract",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    try {
+      res.json(
+        ok(
+          await service.getContractForRequest(
+            pathParam(req, "requestId"),
+            authedUser(req),
+          ),
+        ),
+      );
+    } catch (err) {
+      sendError(res, err);
+    }
+  }),
+);
+
 escrowRouter.post(
   "/contracts/:id/fund",
   requireAuth,

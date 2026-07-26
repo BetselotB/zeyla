@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { ServiceRequestDto } from "../lib/types.js";
 import { DiscoveryNav, TrustStrip } from "./DiscoveryNav.js";
 import { LanguageSelect } from "./LanguageSelect.js";
+import { LiveAvailability } from "./LiveAvailability.js";
 import { ProblemIntake } from "./ProblemIntake.js";
 import { ProviderResults } from "./ProviderResults.js";
 
@@ -34,6 +35,7 @@ export function LandingView() {
           nearby providers by trust score, and connects you in real time. Fast,
           transparent, and built for Addis Ababa.
         </p>
+        {!request && <LiveAvailability />}
       </section>
 
       {!request ? (

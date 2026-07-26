@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import { REALTIME_EVENTS } from "@zeyla/shared";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { getSocket, useSocketEvent } from "../../../realtime";
 
 const userIcon = L.divIcon({
   className: "tr-leaflet-pin",
@@ -80,50 +82,64 @@ export function useSimulatedProviderPath(
   return pos;
 }
 
+/**
+ * The provider's real position, while there is a contract to track it under.
+ *
+ * The server files GPS against a contract and only lets its two parties into
+ * that room, so there is nothing to join until the customer has started
+ * checkout — before that, and whenever the socket is down, the map animates a
+ * stand-in path and says so via `isLive`.
+ */
 export function useSocketLocation(
-  contractId: string,
+  contractId: string | null,
   fallbackStart: [number, number],
 ) {
   const [pos, setPos] = useState<[number, number]>(fallbackStart);
-  const [connected, setConnected] = useState(false);
+  const [joined, setJoined] = useState(false);
+
+  useSocketEvent<{ lat: number; lng: number }>(
+    REALTIME_EVENTS.CONTRACT_LOCATION,
+    useCallback((payload) => setPos([payload.lat, payload.lng]), []),
+  );
 
   useEffect(() => {
-    let socket: import("socket.io-client").Socket | null = null;
-    let cancelled = false;
+    setJoined(false);
+    if (!contractId) return;
 
-    (async () => {
-      try {
-        const { io } = await import("socket.io-client");
-        const base = import.meta.env.VITE_API_URL ?? "http://localhost:4000";
-        socket = io(base, { transports: ["websocket", "polling"] });
-        socket.on("connect", () => {
-          if (!cancelled) setConnected(true);
-          socket?.emit("join:contract", contractId);
-        });
-        socket.on("disconnect", () => {
-          if (!cancelled) setConnected(false);
-        });
-        socket.on(
-          "contract:location",
-          (payload: { lat: number; lng: number }) => {
-            if (!cancelled) setPos([payload.lat, payload.lng]);
-          },
-        );
-      } catch {
-        /* fall back to simulation */
-      }
-    })();
+    let cancelled = false;
+    let leave: (() => void) | null = null;
+
+    void getSocket().then((socket) => {
+      if (!socket || cancelled) return;
+
+      const join = () => {
+        socket.emit(REALTIME_EVENTS.JOIN_CONTRACT, { contractId });
+        setJoined(true);
+      };
+      const drop = () => setJoined(false);
+
+      // Re-join after a reconnect: rooms do not survive a dropped socket.
+      if (socket.connected) join();
+      socket.on("connect", join);
+      socket.on("disconnect", drop);
+
+      leave = () => {
+        socket.off("connect", join);
+        socket.off("disconnect", drop);
+        socket.emit(REALTIME_EVENTS.LEAVE_CONTRACT, { contractId });
+      };
+    });
 
     return () => {
       cancelled = true;
-      socket?.disconnect();
+      leave?.();
     };
   }, [contractId]);
 
-  const simulated = useSimulatedProviderPath(fallbackStart, !connected);
+  const simulated = useSimulatedProviderPath(fallbackStart, !joined);
 
   return {
-    position: connected ? pos : simulated,
-    isLive: connected,
+    position: joined ? pos : simulated,
+    isLive: joined,
   };
 }

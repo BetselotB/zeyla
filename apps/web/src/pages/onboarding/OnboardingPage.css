@@ -253,6 +253,120 @@
   width: auto;
 }
 
+/* --- Role choice ------------------------------------------------------------ */
+
+.onboarding__roles {
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: 1fr 1fr;
+}
+
+.onboarding__role {
+  align-content: start;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 18px;
+  cursor: pointer;
+  display: grid;
+  gap: 0.4rem;
+  padding: 1rem 1rem 1.1rem;
+  position: relative;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+
+.onboarding__role:hover {
+  background: rgba(255, 255, 255, 0.75);
+}
+
+.onboarding__role:active {
+  transform: scale(0.99);
+}
+
+/* Kept in the tree rather than display:none so it stays focusable and the
+   radio group keeps native arrow-key navigation. */
+.onboarding__role input {
+  height: 1px;
+  margin: 0;
+  opacity: 0;
+  position: absolute;
+  width: 1px;
+}
+
+.onboarding__role.is-selected {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(17, 17, 17, 0.55);
+}
+
+.onboarding__role:has(input:focus-visible) {
+  outline: 2px solid var(--black);
+  outline-offset: 2px;
+}
+
+.onboarding__role.is-selected::after {
+  align-items: center;
+  background: var(--black);
+  border-radius: 50%;
+  color: #fff;
+  content: "✓";
+  display: inline-flex;
+  font-size: 0.65rem;
+  height: 1.15rem;
+  justify-content: center;
+  position: absolute;
+  right: 0.85rem;
+  top: 0.9rem;
+  width: 1.15rem;
+}
+
+.onboarding__role-tag {
+  color: rgba(17, 17, 17, 0.45);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.onboarding__role-title {
+  color: var(--ink);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.onboarding__role-points {
+  color: var(--muted);
+  display: grid;
+  font-size: 0.8125rem;
+  gap: 0.3rem;
+  line-height: 1.45;
+  list-style: none;
+  margin: 0.15rem 0 0;
+  padding: 0;
+}
+
+.onboarding__role-points li {
+  padding-left: 0.85rem;
+  position: relative;
+}
+
+.onboarding__role-points li::before {
+  background: rgba(17, 17, 17, 0.28);
+  border-radius: 50%;
+  content: "";
+  height: 0.3rem;
+  left: 0;
+  position: absolute;
+  top: 0.5rem;
+  width: 0.3rem;
+}
+
+/* Two columns get too narrow for the bullets on a small phone. */
+@media (max-width: 30rem) {
+  .onboarding__roles {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* --- Status, notices, hints ------------------------------------------------- */
 
 .onboarding__status {
